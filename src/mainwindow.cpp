@@ -37,47 +37,54 @@ MainWindow::MainWindow(QWidget *parent) :
     QPushButton *pb;
 
     QWidget *widget = new QWidget(this);
-    hLayout = new QHBoxLayout(nullptr);
+    hLayout = new QHBoxLayout;
+    hLayout->setMargin(10);
+    hLayout->setSpacing(20);
 
     hLayout->addWidget(label = new QLabel(QString("出发站: ")));
     label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    hLayout->addWidget(cestartSta = new CompleteEdit(nullptr));
+    hLayout->addWidget(cestartSta = new CompleteEdit);
     cestartSta->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
     cestartSta->setMaximumWidth(120);
 
+    hLayout->addWidget(pb = new QPushButton);
+    pb->setIcon(QIcon(QStringLiteral(":/icon/images/swap.png")));
+    connect(pb, &QPushButton::clicked, this, &MainWindow::swapStation);
+
     hLayout->addWidget(label = new QLabel(QString("到达站: ")));
     label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    hLayout->addWidget(ceEndSta = new CompleteEdit(nullptr));
+    hLayout->addWidget(ceEndSta = new CompleteEdit);
     ceEndSta->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
     ceEndSta->setMaximumWidth(120);
 
     hLayout->addWidget(new QLabel(QString("日期: ")));
-    hLayout->addWidget(dateEdit = new QDateEdit(nullptr));
+    hLayout->addWidget(dateEdit = new QDateEdit);
     hLayout->addStretch();
 
-    hLayout->addWidget(pb = new QPushButton(nullptr));
+    hLayout->addWidget(pb = new QPushButton);
     pb->setText(tr("查询"));
     connect(pb, &QPushButton::clicked, this, &MainWindow::queryTicket);
-    hLayout->addWidget(pb = new QPushButton(nullptr));
+    hLayout->addWidget(pb = new QPushButton);
     pb->setText(tr("登陆"));
     connect(pb, &QPushButton::clicked, this, &MainWindow::login);
-    hLayout->addWidget(pb = new QPushButton(nullptr));
+    hLayout->addWidget(pb = new QPushButton);
     pb->setText(tr("设置"));
-    hLayout->addWidget(pb = new QPushButton(nullptr));
+    hLayout->addWidget(pb = new QPushButton);
     pb->setText(tr("开始"));
 
     QDate curDate = QDate::currentDate();
     dateEdit->setDateRange(curDate, curDate.addDays(30));
     dateEdit->setCalendarPopup(true);
+    connect(dateEdit, &QDateEdit::dateChanged, this, &MainWindow::userTourDateChanged);
 
-    QVBoxLayout *vLayout = new QVBoxLayout(nullptr);
+    QVBoxLayout *vLayout = new QVBoxLayout;
     vLayout->addLayout(hLayout);
     setUpTableView();
-    QHBoxLayout *hLayout2 = new QHBoxLayout(nullptr);
+    QHBoxLayout *hLayout2 = new QHBoxLayout;
     hLayout2->setSpacing(10);
     hLayout2->addWidget(tableView);
 
-    QDockWidget *dock = new QDockWidget(tr("Setting", nullptr));
+    QDockWidget *dock = new QDockWidget(tr("Setting"));
     dock->setFeatures(QDockWidget::DockWidgetMovable);
     dock->setFeatures(QDockWidget::DockWidgetClosable);
     vLayout->addLayout(hLayout2);
@@ -86,7 +93,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
     widget->setLayout(vLayout);
     setCentralWidget(widget);
-    setWindowTitle(QString("12306 qt client"));
 
     connect(cestartSta, &CompleteEdit::editingFinished, this, &MainWindow::userStartStationChanged);
     connect(ceEndSta, &CompleteEdit::editingFinished, this, &MainWindow::userEndStationChanged);
@@ -94,10 +100,12 @@ MainWindow::MainWindow(QWidget *parent) :
     InputCompleter *ic;
     UserData *uData = UserData::instance();
 
-    ic = new InputCompleter(*uData->staMap, this);
+    userTourDateChanged(dateEdit->date());
+
+    ic = new InputCompleter(*uData->getStaMap(), this);
     ic->setCaseSensitivity((Qt::CaseInsensitive));
     cestartSta->setCompleter(ic);
-    ic = new InputCompleter(*uData->staMap, this);
+    ic = new InputCompleter(*uData->getStaMap(), this);
     ic->setCaseSensitivity((Qt::CaseInsensitive));
     ceEndSta->setCompleter(ic);
 
@@ -106,7 +114,7 @@ MainWindow::MainWindow(QWidget *parent) :
     readSettings();
 
     handleReply();
-
+    setTabOrder(cestartSta, ceEndSta);
 }
 
 void MainWindow::createUiComponent()
@@ -171,18 +179,49 @@ void MainWindow::userStartStationChanged()
     CompleteEdit *pbStart = static_cast<CompleteEdit *>(hLayout->itemAt(1)->widget());
     UserData *ud = UserData::instance();
     QString staFromStation = pbStart->text();
-    ud->staFromCode = ud->staCode->value(staFromStation);
+    ud->getUserConfig().staFromName = staFromStation;
+    ud->getUserConfig().staFromCode = ud->getStaCode()->value(staFromStation);
     //qDebug() << "start station = " << staFromStation << ", start code = " << ud->staFromCode << endl;
 }
 
 void MainWindow::userEndStationChanged()
 {
     QHBoxLayout *hLayout =  static_cast<QHBoxLayout *>(centralWidget()->layout()->itemAt(0));
-    CompleteEdit *pbEnd = static_cast<CompleteEdit *>(hLayout->itemAt(3)->widget());
+    CompleteEdit *pbEnd = static_cast<CompleteEdit *>(hLayout->itemAt(4)->widget());
     UserData *ud = UserData::instance();
     QString staToStation = pbEnd->text();
-    ud->staToCode = ud->staCode->value(staToStation);
+    ud->getUserConfig().staToName = staToStation;
+    ud->getUserConfig().staToCode = ud->getStaCode()->value(staToStation);
     //qDebug() << "end station = " << staToStation << ", end code = " << ud->staToCode << endl;
+}
+
+void MainWindow::userTourDateChanged(const QDate &date)
+{
+    QString strDate = QString("%1-%2-%3")
+            .arg(date.year(), 2, 10, QLatin1Char('0'))
+            .arg(date.month(), 2, 10, QLatin1Char('0'))
+            .arg(date.day(), 2, 10, QLatin1Char('0'));
+    UserData::instance()->getUserConfig().tourDate =
+            strDate;
+}
+
+void MainWindow::swapStation()
+{
+    QString tmp;
+    UserData *ud = UserData::instance();
+    UserConfig uc = ud->getUserConfig();
+    QHBoxLayout *hLayout =  static_cast<QHBoxLayout *>(centralWidget()->layout()->itemAt(0));
+    CompleteEdit *pbStart = static_cast<CompleteEdit *>(hLayout->itemAt(1)->widget());
+    CompleteEdit *pbEnd = static_cast<CompleteEdit *>(hLayout->itemAt(4)->widget());
+
+    tmp = pbStart->text();
+    pbStart->setText(pbEnd->text());
+    pbEnd->setText(tmp);
+
+    //uc.staFromName.swap(uc.staToName);
+    qDebug() << uc.staFromName << uc.staToName << endl;
+    //uc.staFromCode.swap(uc.staToCode);
+    qDebug() << uc.staFromCode << uc.staToCode << endl;
 }
 
 void MainWindow::handleReply()
@@ -199,11 +238,26 @@ void MainWindow::handleReply()
         case EQUERYTICKET:
             proccessQueryTicketResponse(reply);
             break;
+        case EGETSTATIONNAMETXT:
+            proccessStationNameTxtResponse(reply);
+            break;
         default:
             break;
         };
         reply->deleteLater();
     });
+}
+
+void MainWindow::setRemainTicketColor(QString &remain, QStandardItem *item)
+{
+    if (remain.isEmpty())
+        return;
+    if (!remain.compare(QStringLiteral("有")))
+        item->setForeground(QBrush(QColor(0, 255, 0)));
+    else if (!remain.compare(QStringLiteral("无")))
+        item->setForeground(QBrush(QColor(190, 190, 190)));
+    else
+        item->setForeground(QBrush(QColor(238, 154, 73)));
 }
 
 void MainWindow::proccessQueryTicketResponse(QNetworkReply *reply)
@@ -294,9 +348,11 @@ void MainWindow::proccessQueryTicketResponse(QNetworkReply *reply)
                 item->setTextAlignment(Qt::AlignCenter);
                 model->setItem(i, EFIRSTPRISEAT, item = new QStandardItem(trainInfo[EZYNUM].isEmpty() ?
                                                                        "--" : trainInfo[EZYNUM]));
+                setRemainTicketColor(trainInfo[EZYNUM], item);
                 item->setTextAlignment(Qt::AlignCenter);
                 model->setItem(i, ESECONDPRISEAT, item = new QStandardItem(trainInfo[EZENUM].isEmpty() ?
                                                                         "--" : trainInfo[EZENUM]));
+                setRemainTicketColor(trainInfo[EZENUM], item);
                 item->setTextAlignment(Qt::AlignCenter);
                 model->setItem(i, EADVSOFTCROUCH, item = new QStandardItem(trainInfo[EGRNUM].isEmpty() ?
                                                                         "--" : trainInfo[EGRNUM]));
@@ -329,6 +385,12 @@ void MainWindow::proccessQueryTicketResponse(QNetworkReply *reply)
     }
 }
 
+void MainWindow::proccessStationNameTxtResponse(QNetworkReply *reply)
+{
+    QByteArray text = reply->readAll();
+    UserData::instance()->writeStationFile(text);
+}
+
 void MainWindow::login()
 {
     QLineEdit *nameLineEdit = new QLineEdit;
@@ -337,9 +399,10 @@ void MainWindow::login()
     fLayout->addRow(tr("用户名"), nameLineEdit);
     fLayout->addRow(tr("密码"), passwdLineEdit);
 
-    QLabel *label = new QLabel;
+    VarCodeLabel *label = new VarCodeLabel;
     label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     label->setFixedSize(280, 200);
+    label->setAlignment(Qt::AlignCenter);
 
     QVBoxLayout *vLayout = new QVBoxLayout;
     vLayout->addLayout(fLayout);
@@ -395,19 +458,14 @@ void MainWindow::submitLoginRequest()
 void MainWindow::queryTicket()
 {
     UserData *ud = UserData::instance();
+    QString staFromCode = ud->getUserConfig().staFromCode;
+    QString staToCode = ud->getUserConfig().staToCode;
+    QString tourDate = ud->getUserConfig().tourDate;
 
-    if (!ud->staFromCode.isEmpty() && !ud->staToCode.isEmpty()) {
-        QHBoxLayout *hLayout =  static_cast<QHBoxLayout *>(centralWidget()->layout()->itemAt(0));
-        QDateEdit *dateEdit = static_cast<QDateEdit *>(hLayout->itemAt(5)->widget());
-        QDate date = dateEdit->date();
-        QString year = QString::number(date.year());
-        QString month = QString::number(date.month());
-        QString day = QString::number(date.day());
-
-        month = month.length() < 2 ? "0" + month : month;
-        day = day.length() < 2 ? "0" + day : day;
-        QString strDate = year + '-' + month + '-' + day;
-        NetHelper::instance()->queryTicket(ud->staFromCode, ud->staToCode, strDate);
+    qDebug() << "staFromCode = " << staFromCode << ", staToCode = "
+             << staToCode << ", tourDate = " << tourDate << endl;
+    if (!staFromCode.isEmpty() && !staToCode.isEmpty()) {
+        NetHelper::instance()->queryTicket(staFromCode, staToCode, tourDate);
     }
 }
 

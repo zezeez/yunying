@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/icon">
+        <file>images/selected.png</file>
+        <file>images/swap.png</file>
+        <file>images/ticket.ico</file>
+    </qresource>
+</RCC>

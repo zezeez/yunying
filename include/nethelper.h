@@ -12,7 +12,8 @@ class QNetworkReply;
 enum ENETRPLYENUM {
     EGETVARIFICATIONCODE = 1,
     ELOGIN,
-    EQUERYTICKET
+    EQUERYTICKET,
+    EGETSTATIONNAMETXT,
 };
 
 class NetHelper : public QObject
@@ -25,6 +26,7 @@ public:
     void getVarificationImage();
     void doLogin();
     void queryTicket(const QString &staStartCode, const QString &staEndCode, const QString &date);
+    void getStationNameTxt();
 
 signals:
     void finished(QNetworkReply *reply);

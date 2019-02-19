@@ -6,6 +6,7 @@
 #include <QStandardItemModel>
 #include <QDialog>
 #include <QLabel>
+#include <QDate>
 #include <QtNetwork/QNetworkReply>
 
 namespace Ui {
@@ -19,10 +20,12 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    void setRemainTicketColor(QString &remain, QStandardItem *item);
 
 public slots:
     void userStartStationChanged();
     void userEndStationChanged();
+    void userTourDateChanged(const QDate &date);
 protected:
     void resizeEvent(QResizeEvent *event);
 private slots:
@@ -36,6 +39,7 @@ private slots:
     void refreshVarificationImage();
     void submitLoginRequest();
     void queryTicket();
+    void swapStation();
 private:
     void createUiComponent();
     void createStatusBars();
@@ -44,6 +48,7 @@ private:
     void handleReply();
     void proccessVarificationResponse(QNetworkReply *reply);
     void proccessQueryTicketResponse(QNetworkReply *reply);
+    void proccessStationNameTxtResponse(QNetworkReply *reply);
 private:
     Ui::MainWindow *ui;
     QTableView *tableView;

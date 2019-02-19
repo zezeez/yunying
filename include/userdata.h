@@ -75,20 +75,44 @@ enum TrainInfoEnum {
     EUNKNOWN2
 };
 
+struct UserConfig {
+    QString staFromName;
+    QString staToName;
+    QString staFromCode;
+    QString staToCode;
+    QString tourDate;
+};
+
 class UserData
 {
 public:
     static UserData *instance();
     ~UserData();
+    void proccessStationNameTxt(const QByteArray &date);
+    int readStationFile(const QString &file);
+    int writeStationFile(const QByteArray &data);
+    void setStationInfo(const QString &data);
+    inline struct UserConfig &getUserConfig()
+    {
+        return userConfig;
+    }
+    inline QMap<QString, QStringList> *getStaMap()
+    {
+        return staMap;
+    }
+    inline QHash<QString, QString> *getStaCode()
+    {
+        return staCode;
+    }
 
 private:
     explicit UserData();
     UserData(const UserData &) Q_DECL_EQ_DELETE;
     UserData &operator=(const UserData &rhs) Q_DECL_EQ_DELETE;
-public:
+private:
     QMap<QString, QStringList> *staMap;
     QHash<QString, QString> *staCode;
-    QString staFromCode, staToCode;
+    struct UserConfig userConfig;
 };
 
 #endif // USERDATA_H
