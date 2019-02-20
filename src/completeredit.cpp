@@ -15,8 +15,10 @@ CompleteEdit::~CompleteEdit()
 
 void CompleteEdit::setCompleter(InputCompleter *completer)
 {
-    if (c)
+    if (c) {
         QObject::disconnect(c, nullptr, this, nullptr);
+        delete c;
+    }
 
     c = completer;
 

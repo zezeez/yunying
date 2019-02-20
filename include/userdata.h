@@ -4,6 +4,9 @@
 #include <QMultiHash>
 #include <QStringList>
 #include <QMap>
+#include <QIODevice>
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 
 enum stationInfoEnum {
     ETHREEPINYINCODE = 0,
@@ -105,6 +108,12 @@ public:
         return staCode;
     }
 
+    bool readConfigFile();
+    bool readConfig();
+    bool writeConfigFile();
+    bool writeConfig();
+
+    QString errorString() const;
 private:
     explicit UserData();
     UserData(const UserData &) Q_DECL_EQ_DELETE;
@@ -113,6 +122,10 @@ private:
     QMap<QString, QStringList> *staMap;
     QHash<QString, QString> *staCode;
     struct UserConfig userConfig;
+
+    void readXBEL();
+    QXmlStreamReader rxml;
+    QXmlStreamWriter wxml;
 };
 
 #endif // USERDATA_H

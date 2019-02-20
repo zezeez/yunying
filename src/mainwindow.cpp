@@ -23,6 +23,7 @@
 #include <QJsonParseError>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QCloseEvent>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -197,19 +198,15 @@ void MainWindow::userEndStationChanged()
 
 void MainWindow::userTourDateChanged(const QDate &date)
 {
-    QString strDate = QString("%1-%2-%3")
-            .arg(date.year(), 2, 10, QLatin1Char('0'))
-            .arg(date.month(), 2, 10, QLatin1Char('0'))
-            .arg(date.day(), 2, 10, QLatin1Char('0'));
-    UserData::instance()->getUserConfig().tourDate =
-            strDate;
+    QString strDate = date.toString(QStringLiteral("yyyy-MM-dd"));
+    UserData::instance()->getUserConfig().tourDate = strDate;
 }
 
 void MainWindow::swapStation()
 {
     QString tmp;
     UserData *ud = UserData::instance();
-    UserConfig uc = ud->getUserConfig();
+    UserConfig &uc = ud->getUserConfig();
     QHBoxLayout *hLayout =  static_cast<QHBoxLayout *>(centralWidget()->layout()->itemAt(0));
     CompleteEdit *pbStart = static_cast<CompleteEdit *>(hLayout->itemAt(1)->widget());
     CompleteEdit *pbEnd = static_cast<CompleteEdit *>(hLayout->itemAt(4)->widget());
@@ -218,10 +215,10 @@ void MainWindow::swapStation()
     pbStart->setText(pbEnd->text());
     pbEnd->setText(tmp);
 
-    //uc.staFromName.swap(uc.staToName);
-    qDebug() << uc.staFromName << uc.staToName << endl;
-    //uc.staFromCode.swap(uc.staToCode);
-    qDebug() << uc.staFromCode << uc.staToCode << endl;
+    uc.staFromName.swap(uc.staToName);
+    //qDebug() << uc.staFromName << uc.staToName << endl;
+    uc.staFromCode.swap(uc.staToCode);
+    //qDebug() << uc.staFromCode << uc.staToCode << endl;
 }
 
 void MainWindow::handleReply()
@@ -388,13 +385,26 @@ void MainWindow::proccessQueryTicketResponse(QNetworkReply *reply)
 void MainWindow::proccessStationNameTxtResponse(QNetworkReply *reply)
 {
     QByteArray text = reply->readAll();
-    UserData::instance()->writeStationFile(text);
+    UserData *ud = UserData::instance();
+    ud->writeStationFile(text);
+
+    QHBoxLayout *hLayout =  static_cast<QHBoxLayout *>(centralWidget()->layout()->itemAt(0));
+    CompleteEdit *pbStart = static_cast<CompleteEdit *>(hLayout->itemAt(1)->widget());
+    CompleteEdit *pbEnd = static_cast<CompleteEdit *>(hLayout->itemAt(4)->widget());
+
+    InputCompleter *ic = new InputCompleter(*ud->getStaMap(), this);
+    ic->setCaseSensitivity(Qt::CaseInsensitive);
+    pbStart->setCompleter(ic);
+    ic = new InputCompleter(*ud->getStaMap(), this);
+    ic->setCaseSensitivity(Qt::CaseInsensitive);
+    pbEnd->setCompleter(ic);
 }
 
 void MainWindow::login()
 {
     QLineEdit *nameLineEdit = new QLineEdit;
     QLineEdit *passwdLineEdit = new QLineEdit;
+    passwdLineEdit->setEchoMode(QLineEdit::Password);
     QFormLayout *fLayout = new QFormLayout;
     fLayout->addRow(tr("用户名"), nameLineEdit);
     fLayout->addRow(tr("密码"), passwdLineEdit);
@@ -500,7 +510,6 @@ void MainWindow::setUpTableView()
     tableView->setModel(model);
 }
 
-//窗口大小发生改变
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     //列宽随窗口大小改变而改变，每列平均分配，充满整个表，但是此时列宽不能拖动进行改变
@@ -508,14 +517,43 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     QMainWindow::resizeEvent(event);
 }
 
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    int ret = QMessageBox::warning(this,
+                                   tr("提示"),
+                                   tr("退出程序吗？"),
+                                   QMessageBox::Yes | QMessageBox::No);
+
+    if (ret == QMessageBox::Yes) {
+        writeSettings();
+        event->accept();
+    } else {
+        event->ignore();
+    }
+}
+
 void MainWindow::readSettings()
 {
+    UserData *ud = UserData::instance();
+    if (ud->readConfigFile()) {
+        UserConfig &uc = ud->getUserConfig();
 
+        QHBoxLayout *hLayout =  static_cast<QHBoxLayout *>(centralWidget()->layout()->itemAt(0));
+        CompleteEdit *pbStart = static_cast<CompleteEdit *>(hLayout->itemAt(1)->widget());
+        CompleteEdit *pbEnd = static_cast<CompleteEdit *>(hLayout->itemAt(4)->widget());
+        QDateEdit *dateEdit = static_cast<QDateEdit *>(hLayout->itemAt(6)->widget());
+
+        pbStart->setText(uc.staFromName);
+        uc.staFromCode = ud->getStaCode()->value(uc.staFromName);
+        pbEnd->setText(uc.staToName);
+        uc.staToCode = ud->getStaCode()->value(uc.staToName);
+        dateEdit->setDate(QDate::fromString(uc.tourDate, "yyyy-MM-dd"));
+    }
 }
 
 void MainWindow::writeSettings()
 {
-
+    UserData::instance()->writeConfigFile();
 }
 
 void MainWindow::changeTrain()

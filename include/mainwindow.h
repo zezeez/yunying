@@ -28,6 +28,8 @@ public slots:
     void userTourDateChanged(const QDate &date);
 protected:
     void resizeEvent(QResizeEvent *event);
+    void closeEvent(QCloseEvent *event);
+
 private slots:
     void about();
     void changeTrain();
