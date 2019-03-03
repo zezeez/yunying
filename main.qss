@@ -1,0 +1,180 @@
+QMainWindow::separator {
+  background: #B0E0E6;
+  width: 5px; /* when vertical */
+  height: 3px; /* when horizontal */
+}
+
+QMainWindow {
+  background: #FCFCFC;
+}
+
+QMainWindow::separator:hover {
+  background: #9AFF9A;
+}
+
+QPushButton {
+  background-color: #F0F8FF;
+  border-style: outset;
+  border-width: 2px;
+  border-radius: 2px;
+  border-color: beige;
+  font: bold 14px;
+  min-width: 4em;
+  padding: 2px;
+}
+QPushButton:hover {
+  background-color: #B2DFEE;
+}
+
+QLineEdit {
+  border: 2px solid gray;
+  border-radius: 10px;
+  padding: 0 8px;
+  background: yellow;
+  selection-background-color: darkgray;
+}
+
+QLineEdit:hover {
+  border: white;
+}
+
+QLineEdit[echoMode="2"] {
+  lineedit-password-character: 9679;
+}
+
+QLineEdit:read-only {
+  background: lightblue;
+}
+
+QTableView {
+ /*selection-background-color: qlineargradient(x1: 0, y1: 0, x2: 0.5, y2: 0.5,
+                             stop: 0 #FF92BB, stop: 1 white);*/
+  selection-background-color: #87CEFA;
+}
+
+QTableView QTableCornerButton::section {
+  background: #E0EEEE;
+  border: 2px outset #E0EEEE;
+}
+
+QTableView::indicator:unchecked {
+  background-color: #d7d6d5;
+}
+
+QDockWidget {
+  border: 1px solid lightgray;
+  titlebar-close-icon: url(close.png);
+  titlebar-normal-icon: url(undock.png);
+}
+
+QDockWidget::title {
+  text-align: left; /* align the text to the left */
+  background: lightgray;
+  padding-left: 5px;
+}
+
+QDockWidget::close-button, QDockWidget::float-button {
+  border: 1px solid transparent;
+  background: darkgray;
+  padding: 0px;
+}
+
+QDockWidget::close-button:hover, QDockWidget::float-button:hover {
+  background: gray;
+}
+
+QDockWidget::close-button:pressed, QDockWidget::float-button:pressed {
+  padding: 1px -1px -1px 1px;
+}
+
+QListView {
+  show-decoration-selected: 1; /* make the selection span the entire width of the view */
+}
+
+QListView::item:alternate {
+  background: #EEEEEE;
+}
+
+QListView::item:selected {
+  border: 1px solid #6a6ea9;
+}
+
+QListView::item:selected:!active {
+  background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                             stop: 0 #ABAFE5, stop: 1 #8588B2);
+}
+
+QListView::item:selected:active {
+  background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                             stop: 0 #6a6ea9, stop: 1 #888dd9);
+}
+
+QListView::item:hover {
+  background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                             stop: 0 #FAFBFE, stop: 1 #DCDEF1);
+}
+
+
+QMenu {
+  background-color: white;
+  margin: 2px; /* some spacing around the menu */
+}
+
+QMenu::item {
+  padding: 2px 25px 2px 20px;
+  border: 1px solid transparent; /* reserve space for selection border */
+}
+
+QMenu::item:selected {
+  border-color: darkblue;
+  background: rgba(100, 100, 100, 150);
+}
+
+QMenu::icon:checked { /* appearance of a 'checked' icon */
+  background: gray;
+  border: 1px inset gray;
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  left: 1px;
+}
+
+QMenu::separator {
+  height: 2px;
+  background: lightblue;
+  margin-left: 10px;
+  margin-right: 5px;
+}
+
+QMenu::indicator {
+  width: 13px;
+  height: 13px;
+}
+
+QMenuBar {
+  background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                    stop:0 lightgray, stop:1 darkgray);
+}
+
+QMenuBar::item {
+  spacing: 3px; /* spacing between menu bar items */
+  padding: 1px 4px;
+  background: transparent;
+  border-radius: 4px;
+}
+
+QMenuBar::item:selected { /* when selected using mouse or keyboard */
+  background: #a8a8a8;
+}
+
+QMenuBar::item:pressed {
+  background: #888888;
+}
+
+QDateEdit {
+  spacing: 3px;
+  padding: 1px 4px;
+  background: #008B8B;
+  border-radius: 4px;
+}

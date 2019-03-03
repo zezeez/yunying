@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QDate>
 #include <QtNetwork/QNetworkReply>
+#include <QTextBrowser>
 
 namespace Ui {
 class MainWindow;
@@ -44,12 +45,16 @@ private slots:
     void swapStation();
     void doVarification();
     void uamIsLogin();
+    void bookingTicket();
 private:
     void createUiComponent();
     void createStatusBars();
+    void createDockWidget();
     void readSettings();
     void writeSettings();
     void handleReply();
+    void formatOutput(const QString &buffer);
+    void formatWithColorOutput(const QString &buffer, QColor color);
     void processVarificationResponse(QNetworkReply *reply);
     void processDoVarificationResponse(QNetworkReply *reply);
     void processQueryTicketResponse(QNetworkReply *reply);
@@ -64,6 +69,7 @@ private:
     QStandardItemModel *model;
     QDialog *loginDialog;
     QDialog *SettingDialog;
+    QTextBrowser *browser;
 };
 
 #endif // MAINWINDOW_H

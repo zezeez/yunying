@@ -60,6 +60,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     hLayout->addWidget(new QLabel(QString("日期: ")));
     hLayout->addWidget(dateEdit = new QDateEdit);
+    dateEdit->setMinimumWidth(105);
     hLayout->addStretch();
 
     hLayout->addWidget(pb = new QPushButton);
@@ -84,13 +85,9 @@ MainWindow::MainWindow(QWidget *parent) :
     QHBoxLayout *hLayout2 = new QHBoxLayout;
     hLayout2->setSpacing(10);
     hLayout2->addWidget(tableView);
-
-    QDockWidget *dock = new QDockWidget(tr("Setting"));
-    dock->setFeatures(QDockWidget::DockWidgetMovable);
-    dock->setFeatures(QDockWidget::DockWidgetClosable);
     vLayout->addLayout(hLayout2);
-    addDockWidget(Qt::BottomDockWidgetArea, dock);
-    dock->resize(dock->sizeHint());
+
+    createDockWidget();
 
     widget->setLayout(vLayout);
     setCentralWidget(widget);
@@ -106,9 +103,23 @@ MainWindow::MainWindow(QWidget *parent) :
     ic = new InputCompleter(*uData->getStaMap(), this);
     ic->setCaseSensitivity((Qt::CaseInsensitive));
     cestartSta->setCompleter(ic);
+    ic->popup()->setStyleSheet("background-color: #AEEEEE;\
+                                color: #000000;\
+                                border: 1px solid #7FFFD4;\
+                                border-radius: 5px;\
+                                padding: 2px 2px 2px 2px;\
+                                min-width: 17px;\
+                                font: 14px \"Arial\";");
     ic = new InputCompleter(*uData->getStaMap(), this);
     ic->setCaseSensitivity((Qt::CaseInsensitive));
     ceEndSta->setCompleter(ic);
+    ic->popup()->setStyleSheet("background-color: #AEEEEE;\
+                                color: #000000;\
+                                border: 1px solid #7FFFD4;\
+                                border-radius: 5px;\
+                                padding: 2px 2px 2px 2px;\
+                                min-width: 17px;\
+                                font: 14px \"Arial\";");
 
     createUiComponent();
 
@@ -116,6 +127,26 @@ MainWindow::MainWindow(QWidget *parent) :
 
     handleReply();
     setTabOrder(cestartSta, ceEndSta);
+    statusBar()->showMessage(QStringLiteral("准备就绪"));
+}
+
+void MainWindow::createDockWidget()
+{
+    QWidget *widget = new QWidget;
+    QDockWidget *dock = new QDockWidget;
+    dock->setFeatures(QDockWidget::DockWidgetMovable);
+    dock->setFeatures(QDockWidget::DockWidgetClosable);
+
+    addDockWidget(Qt::BottomDockWidgetArea, dock);
+    dock->resize(dock->sizeHint());
+
+    browser = new QTextBrowser;
+    browser->setTextColor(QColor(0, 139, 139));
+    //browser->setMinimumSize(QSize(200, 80));
+    QHBoxLayout *layout = new QHBoxLayout;
+    layout->addWidget(browser);
+    widget->setLayout(layout);
+    dock->setWidget(widget);
 }
 
 void MainWindow::createUiComponent()
@@ -182,7 +213,6 @@ void MainWindow::userStartStationChanged()
     QString staFromStation = pbStart->text();
     ud->getUserConfig().staFromName = staFromStation;
     ud->getUserConfig().staFromCode = ud->getStaCode()->value(staFromStation);
-    //qDebug() << "start station = " << staFromStation << ", start code = " << ud->staFromCode << endl;
 }
 
 void MainWindow::userEndStationChanged()
@@ -193,7 +223,6 @@ void MainWindow::userEndStationChanged()
     QString staToStation = pbEnd->text();
     ud->getUserConfig().staToName = staToStation;
     ud->getUserConfig().staToCode = ud->getStaCode()->value(staToStation);
-    //qDebug() << "end station = " << staToStation << ", end code = " << ud->staToCode << endl;
 }
 
 void MainWindow::userTourDateChanged(const QDate &date)
@@ -216,9 +245,7 @@ void MainWindow::swapStation()
     pbEnd->setText(tmp);
 
     uc.staFromName.swap(uc.staToName);
-    //qDebug() << uc.staFromName << uc.staToName << endl;
     uc.staFromCode.swap(uc.staToCode);
-    //qDebug() << uc.staFromCode << uc.staToCode << endl;
 }
 
 void MainWindow::handleReply()
@@ -268,6 +295,15 @@ void MainWindow::setRemainTicketColor(QString &remain, QStandardItem *item)
         item->setForeground(QBrush(QColor(190, 190, 190)));
     else
         item->setForeground(QBrush(QColor(238, 154, 73)));
+}
+
+void MainWindow::bookingTicket()
+{
+    qDebug() << "booking" << endl;
+    QPushButton *button = static_cast<QPushButton *>(sender());
+    int num = button->property("row").toInt();
+    QString trainNum = button->property("trainNo").toString();
+    qDebug() << "num = " << num << ", trainNum = " << trainNum << endl;
 }
 
 void MainWindow::processQueryTicketResponse(QNetworkReply *reply)
@@ -327,10 +363,14 @@ void MainWindow::processQueryTicketResponse(QNetworkReply *reply)
                 QStandardItem *item;
                 QPushButton *button;
 
-                if (!trainInfo[ETEXTINFO].compare(QLatin1String("预订"))) {
+                if (!trainInfo[ETEXTINFO].compare(QStringLiteral("预订"))) {
                     button = new QPushButton(tr("预订"));
-                    button->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-                    button->setFixedSize(50, 35);
+                    //button->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+                    //button->setFixedSize(50, 35);
+                    button->setStyleSheet(QStringLiteral("QPushButton { color: #1C86EE; }"));
+                    button->setProperty("row", i);
+                    button->setProperty("trainNo", trainInfo[ESTATIONTRAINCODE]);
+                    connect(button, &QPushButton::clicked, this, &MainWindow::bookingTicket);
                     tableView->setIndexWidget(model->index(i, ETRAINTABLECOLUMNEND - 1), button);
                 } else {
                     model->setItem(i, ETRAINNUM, item = new QStandardItem(trainInfo[ESTATIONTRAINCODE]));
@@ -341,18 +381,22 @@ void MainWindow::processQueryTicketResponse(QNetworkReply *reply)
 
                 model->setItem(i, ETRAINNUM, item = new QStandardItem(trainInfo[ESTATIONTRAINCODE]));
                 item->setTextAlignment(Qt::AlignCenter);
+                item->setForeground(QBrush(QColor(99, 184, 255)));
                 model->setItem(i, EFROMTOSTATION, item = new QStandardItem(
                                    stationMap.value(trainInfo[EFROMSTATIONTELECODE]).toString() + "\n" +
                                    stationMap.value(trainInfo[ETOSTATIONTELECODE]).toString()));
                 item->setTextAlignment(Qt::AlignCenter);
                 item->setFont(QFont("Times", 10, QFont::Black));
-                if (!trainInfo[ECANWEBBUY].compare("Y"))
-                    item->setForeground(QBrush(QColor(0, 255, 0)));
+                //if (!trainInfo[ECANWEBBUY].compare("Y"))
+                    //item->setForeground(QBrush(QColor(0, 255, 0)));
+                item->setForeground(QBrush(QColor(99, 184, 255)));
                 model->setItem(i, ESTARTARRIVETIME, item = new QStandardItem(trainInfo[ESTARTTIME] + "\n" +
                                                                     trainInfo[EARRIVETIME]));
                 item->setTextAlignment(Qt::AlignCenter);
+                item->setForeground(QBrush(QColor(205, 104, 137)));
                 model->setItem(i, EUSEDTIME, item = new QStandardItem(trainInfo[ESPEEDTIME]));
                 item->setTextAlignment(Qt::AlignCenter);
+                item->setForeground(QBrush(QColor(122, 139, 139)));
                 model->setItem(i, ESPECIALSEAT, item = new QStandardItem(trainInfo[ESWZNUM].isEmpty() ?
                                                                     "--" : trainInfo[ESWZNUM]));
                 item->setTextAlignment(Qt::AlignCenter);
@@ -545,6 +589,7 @@ void MainWindow::showLoginDialog()
     nHelper->getVarificationImage();
 
     loginDialog = new QDialog(this);
+    loginDialog->setWindowTitle(QStringLiteral("登陆"));
     //loginDialog.setParent(this);
     loginDialog->setLayout(vLayout);
     loginDialog->exec();
@@ -669,6 +714,7 @@ void MainWindow::processPassportUamtkClientResponse(QNetworkReply *reply)
                     UserData::instance()->getUserDetailInfo().usesrName = userName;
                 if (loginDialog)
                     loginDialog->close();
+                statusBar()->showMessage(QStringLiteral("当前用户：") + userName);
             }  else if (!response[QLatin1String("result_message")].toString().isEmpty()) {
                 qDebug() << response[QLatin1String("result_message")].toString() << endl;
             }
@@ -688,6 +734,11 @@ void MainWindow::refreshVarificationImage()
 void MainWindow::doVarification()
 {
     VarCodeLabel *varLabel = static_cast<VarCodeLabel *>(loginDialog->layout()->itemAt(1)->widget());
+    QFormLayout *fLayout = static_cast<QFormLayout *>(loginDialog->layout()->itemAt(0)->layout());
+    QLineEdit *accountEdit = static_cast<QLineEdit *>(fLayout->itemAt(0, QFormLayout::FieldRole)->widget());
+    QLineEdit *passwdEdit = static_cast<QLineEdit *>(fLayout->itemAt(1, QFormLayout::FieldRole)->widget());
+    QString account = accountEdit->text().trimmed();
+    QString passwd = passwdEdit->text().trimmed();
     QVector<QPoint> points;
     QVector<mapArea> &ma = varLabel->getPoints();
 
@@ -695,6 +746,18 @@ void MainWindow::doVarification()
         if (ma[i].selected) {
             points.push_back(ma[i].pos);
         }
+    }
+    if (account.isEmpty()) {
+        QMessageBox::warning(this, tr("Warning"), tr("username can not be empty."), QMessageBox::Ok);
+        return;
+    }
+    if (passwd.isEmpty()) {
+        QMessageBox::warning(this, tr("Warning"), tr("password can not be empty."), QMessageBox::Ok);
+        return;
+    }
+    if (points.isEmpty()) {
+        QMessageBox::warning(this, tr("Warning"), tr("please select varification code."), QMessageBox::Ok);
+        return;
     }
     NetHelper::instance()->doVarification(points);
 }
@@ -721,38 +784,31 @@ void MainWindow::submitLoginRequest()
         }
     }
     varLabel->clearSelected();
-    if (account.isEmpty()) {
-        QMessageBox::warning(this, tr("Warning"), tr("username can not be empty."), QMessageBox::Ok);
-        return;
-    }
-    if (passwd.isEmpty()) {
-        QMessageBox::warning(this, tr("Warning"), tr("password can not be empty."), QMessageBox::Ok);
-        return;
-    }
-    if (points.isEmpty()) {
-        QMessageBox::warning(this, tr("Warning"), tr("please select varification code."), QMessageBox::Ok);
-        return;
-    }
+
     NetHelper::instance()->doLogin(points, account, passwd);
 }
 
 void MainWindow::queryTicket()
 {
     UserData *ud = UserData::instance();
-    QString staFromCode = ud->getUserConfig().staFromCode;
-    QString staToCode = ud->getUserConfig().staToCode;
-    QString tourDate = ud->getUserConfig().tourDate;
+    UserConfig uc = ud->getUserConfig();
+    QString staFromCode = uc.staFromCode;
+    QString staFromName = uc.staFromName;
+    QString staToCode = uc.staToCode;
+    QString staToName = uc.staToName;
+    QString tourDate = uc.tourDate;
 
     qDebug() << "staFromCode = " << staFromCode << ", staToCode = "
              << staToCode << ", tourDate = " << tourDate << endl;
     if (!staFromCode.isEmpty() && !staToCode.isEmpty()) {
         NetHelper::instance()->queryTicket(staFromCode, staToCode, tourDate);
+        formatOutput(QStringLiteral("正在查询从") + staFromName + QStringLiteral(" 到 ") + staToName + QStringLiteral("的余票信息"));
     }
 }
 
 void MainWindow::setUpTableView()
 {
-    tableView = new QTableView(nullptr);
+    tableView = new QTableView;
     model = new QStandardItemModel(this);
     tableView->verticalHeader()->setDefaultSectionSize(40);
     tableView->resize(tableView->sizeHint());
@@ -784,7 +840,7 @@ void MainWindow::setUpTableView()
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     //列宽随窗口大小改变而改变，每列平均分配，充满整个表，但是此时列宽不能拖动进行改变
-    tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);    
+    tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     QMainWindow::resizeEvent(event);
 }
 
@@ -851,14 +907,36 @@ void MainWindow::editConfiguration()
 
 void MainWindow::createStatusBars()
 {
-    QLabel *label = new QLabel(tr(" "));
-    label->setAlignment(Qt::AlignHCenter);
-    label->setMinimumSize(label->sizeHint());
+    /*QLabel *label = new QLabel;
+    //label->setAlignment(Qt::AlignVCenter);
+    //label->setMinimumSize(label->sizeHint());
     statusBar()->addWidget(label);
 
     label = new QLabel;
     label->setIndent(3);
-    statusBar()->addWidget(label);
+    statusBar()->addWidget(label);*/
+}
+
+void MainWindow::formatOutput(const QString &buffer)
+{
+    static QString textBuff;
+    textBuff.clear();
+    QDateTime date = QDateTime::currentDateTime();
+    textBuff += date.toString(Qt::ISODate);
+    textBuff += " " + buffer;
+    browser->append(textBuff);
+}
+
+void MainWindow::formatWithColorOutput(const QString &buffer, const QColor color)
+{
+    static QString textBuff;
+    textBuff.clear();
+    QDateTime date = QDateTime::currentDateTime();
+    textBuff += date.toString(Qt::ISODate);
+    textBuff += " " + buffer;
+    browser->setTextColor(color);
+    browser->append(textBuff);
+    browser->setTextColor(QColor(0, 0, 0));
 }
 
 void MainWindow::about()
@@ -866,9 +944,9 @@ void MainWindow::about()
     QMessageBox::about(this, tr("About 12306 qt client"),
                        tr("<h2>12306 qt client 0.1</h2>"
                           "<p>Copyleft; 2019 Software Inc."
-                          "<p>12306 qt client is a client write by third party, we "
-                          "do not guarantee that you could by the ticket finally."
-                          "This program is public under GPLv3."));
+                          "<p>12306 qt client is a client writen"
+                          "by third party and publish under GPLv3."
+                          ));
 }
 
 MainWindow::~MainWindow()
