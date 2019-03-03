@@ -37,20 +37,27 @@ private slots:
     void cancelTicket();
     void editConfiguration();
     void setUpTableView();
-    void login();
+    void showLoginDialog();
     void refreshVarificationImage();
     void submitLoginRequest();
     void queryTicket();
     void swapStation();
+    void doVarification();
+    void uamIsLogin();
 private:
     void createUiComponent();
     void createStatusBars();
     void readSettings();
     void writeSettings();
     void handleReply();
-    void proccessVarificationResponse(QNetworkReply *reply);
-    void proccessQueryTicketResponse(QNetworkReply *reply);
-    void proccessStationNameTxtResponse(QNetworkReply *reply);
+    void processVarificationResponse(QNetworkReply *reply);
+    void processDoVarificationResponse(QNetworkReply *reply);
+    void processQueryTicketResponse(QNetworkReply *reply);
+    void processStationNameTxtResponse(QNetworkReply *reply);
+    void processUserLoginResponse(QNetworkReply *reply);
+    void processPassportUamtkResponse(QNetworkReply *reply);
+    void processPassportUamtkClientResponse(QNetworkReply *reply);
+    void processUserIsLoginResponse(QNetworkReply *reply);
 private:
     Ui::MainWindow *ui;
     QTableView *tableView;

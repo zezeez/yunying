@@ -67,7 +67,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(pb, &QPushButton::clicked, this, &MainWindow::queryTicket);
     hLayout->addWidget(pb = new QPushButton);
     pb->setText(tr("登陆"));
-    connect(pb, &QPushButton::clicked, this, &MainWindow::login);
+    connect(pb, &QPushButton::clicked, this, &MainWindow::uamIsLogin);
     hLayout->addWidget(pb = new QPushButton);
     pb->setText(tr("设置"));
     hLayout->addWidget(pb = new QPushButton);
@@ -228,15 +228,28 @@ void MainWindow::handleReply()
         ENETRPLYENUM replyType = helper->replyMap.value(reply);
         switch (replyType) {
         case EGETVARIFICATIONCODE:
-            proccessVarificationResponse(reply);
+            processVarificationResponse(reply);
+            break;
+        case EDOVARIFICATION:
+            processDoVarificationResponse(reply);
             break;
         case ELOGIN:
+            processUserLoginResponse(reply);
             break;
         case EQUERYTICKET:
-            proccessQueryTicketResponse(reply);
+            processQueryTicketResponse(reply);
             break;
         case EGETSTATIONNAMETXT:
-            proccessStationNameTxtResponse(reply);
+            processStationNameTxtResponse(reply);
+            break;
+        case EPASSPORTUAMTK:
+            processPassportUamtkResponse(reply);
+            break;
+        case EPASSPORTUAMTKCLIENT:
+            processPassportUamtkClientResponse(reply);
+            break;
+        case EQUERYLOGINSTATUS:
+            processUserIsLoginResponse(reply);
             break;
         default:
             break;
@@ -257,7 +270,7 @@ void MainWindow::setRemainTicketColor(QString &remain, QStandardItem *item)
         item->setForeground(QBrush(QColor(238, 154, 73)));
 }
 
-void MainWindow::proccessQueryTicketResponse(QNetworkReply *reply)
+void MainWindow::processQueryTicketResponse(QNetworkReply *reply)
 {
     QJsonParseError error;
     QJsonDocument jsonDocument = QJsonDocument::fromJson(reply->readAll(), &error);
@@ -382,7 +395,7 @@ void MainWindow::proccessQueryTicketResponse(QNetworkReply *reply)
     }
 }
 
-void MainWindow::proccessStationNameTxtResponse(QNetworkReply *reply)
+void MainWindow::processStationNameTxtResponse(QNetworkReply *reply)
 {
     QByteArray text = reply->readAll();
     UserData *ud = UserData::instance();
@@ -400,14 +413,108 @@ void MainWindow::proccessStationNameTxtResponse(QNetworkReply *reply)
     pbEnd->setCompleter(ic);
 }
 
-void MainWindow::login()
+void MainWindow::processUserIsLoginResponse(QNetworkReply *reply)
 {
-    QLineEdit *nameLineEdit = new QLineEdit;
+    QJsonParseError error;
+    QJsonDocument jsonDocument = QJsonDocument::fromJson(reply->readAll(), &error);
+
+    QVariant statusCode =
+    reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+
+    int statusCodeInt = statusCode.toInt();
+    if (statusCodeInt == 301 || statusCodeInt == 302) {
+        // The target URL if it was a redirect:
+        QVariant redirectionTargetUrl =
+            reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+        qDebug() << "status code = " << statusCodeInt << "redirection Url is " << redirectionTargetUrl.toString() << endl;
+    }
+    if (statusCodeInt != 200) {
+        qDebug() << "Response err: status code = " << statusCodeInt << endl;
+        return;
+    }
+
+    if (error.error == QJsonParseError::NoError) {
+        if (!(jsonDocument.isNull() || jsonDocument.isEmpty()) && jsonDocument.isObject()) {
+            QVariantMap response = jsonDocument.toVariant().toMap();
+            qDebug() << "response = " << response << endl;
+            if (response[QLatin1String("result_code")].toInt() == 0) {
+                qDebug() << "logined" << endl;
+                NetHelper::instance()->passportUamtk();
+            } else {
+                showLoginDialog();
+            }
+        } else {
+            showLoginDialog();
+        }
+    } else {
+        qDebug() << "Error: " << error.errorString() << endl;
+        showLoginDialog();
+    }
+}
+
+void MainWindow::processUserLoginResponse(QNetworkReply *reply)
+{
+    QJsonParseError error;
+    QJsonDocument jsonDocument = QJsonDocument::fromJson(reply->readAll(), &error);
+
+    QVariant statusCode =
+    reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+
+    int statusCodeInt = statusCode.toInt();
+    if (statusCodeInt == 301 || statusCodeInt == 302) {
+        // The target URL if it was a redirect:
+        QVariant redirectionTargetUrl =
+            reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+        qDebug() << "status code = " << statusCodeInt << "redirection Url is " << redirectionTargetUrl.toString() << endl;
+    }
+    if (statusCodeInt != 200) {
+        qDebug() << "Response err: status code = " << statusCodeInt << endl;
+        return;
+    }
+
+    if (error.error == QJsonParseError::NoError) {
+        if (!(jsonDocument.isNull() || jsonDocument.isEmpty()) && jsonDocument.isObject()) {
+            QVariantMap response = jsonDocument.toVariant().toMap();
+            qDebug() << "response = " << response << endl;
+            int result_code = response[QLatin1String("result_code")].toInt();
+            if (result_code == 0) {
+                NetHelper::instance()->passportUamtk();
+            } else if (result_code == 1) {
+                refreshVarificationImage();
+                QFormLayout *fLayout = static_cast<QFormLayout *>(loginDialog->layout()->itemAt(0)->layout());
+                QLineEdit *accountEdit = static_cast<QLineEdit *>(fLayout->itemAt(0, QFormLayout::FieldRole)->widget());
+                QLineEdit *passwdEdit = static_cast<QLineEdit *>(fLayout->itemAt(1, QFormLayout::FieldRole)->widget());
+
+                QString msg = response[QLatin1String("result_message")].toString();
+                if (!msg.isEmpty()) {
+                    QMessageBox::warning(this, tr("提示"), msg, QMessageBox::Ok);
+                    if (msg.contains("登录名不存在")) {
+                        accountEdit->clear();
+                        passwdEdit->clear();
+                    } else if (msg.contains("密码输入错误")) {
+                        passwdEdit->clear();
+                    }
+                }
+                qDebug() << response[QLatin1String("result_message")].toString() << endl;
+            } else if (!response[QLatin1String("result_message")].toString().isEmpty()) {
+                qDebug() << response[QLatin1String("result_message")].toString() << endl;
+                refreshVarificationImage();
+            }
+            QString uamtk = response[QLatin1String("uamtk")].toString();
+            if (!uamtk.isEmpty())
+                UserData::instance()->setUamtk(uamtk);
+        }
+    }
+}
+
+void MainWindow::showLoginDialog()
+{
+    QLineEdit *accountLineEdit = new QLineEdit;
     QLineEdit *passwdLineEdit = new QLineEdit;
     passwdLineEdit->setEchoMode(QLineEdit::Password);
     QFormLayout *fLayout = new QFormLayout;
-    fLayout->addRow(tr("用户名"), nameLineEdit);
-    fLayout->addRow(tr("密码"), passwdLineEdit);
+    fLayout->addRow(tr("账号："), accountLineEdit);
+    fLayout->addRow(tr("密码："), passwdLineEdit);
 
     VarCodeLabel *label = new VarCodeLabel;
     label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -429,7 +536,7 @@ void MainWindow::login()
 
     button = new QPushButton;
     button->setText(tr("提交"));
-    connect(button, &QPushButton::clicked, this, &MainWindow::submitLoginRequest);
+    connect(button, &QPushButton::clicked, this, &MainWindow::doVarification);
     hLayout->addWidget(button);
 
     vLayout->addLayout(hLayout);
@@ -438,31 +545,195 @@ void MainWindow::login()
     nHelper->getVarificationImage();
 
     loginDialog = new QDialog(this);
+    //loginDialog.setParent(this);
     loginDialog->setLayout(vLayout);
     loginDialog->exec();
-
     delete loginDialog;
     loginDialog = nullptr;
 }
 
-void MainWindow::proccessVarificationResponse(QNetworkReply *reply)
+void MainWindow::processVarificationResponse(QNetworkReply *reply)
 {
     if (loginDialog) {
         QPixmap pixMap;
         pixMap.loadFromData(reply->readAll());
-        QLabel *label = static_cast<QLabel *>(loginDialog->layout()->itemAt(1)->widget());
+        VarCodeLabel *label = static_cast<VarCodeLabel *>(loginDialog->layout()->itemAt(1)->widget());
         label->setPixmap(pixMap);
+    }
+}
+
+void MainWindow::processDoVarificationResponse(QNetworkReply *reply)
+{
+    QJsonParseError error;
+    QJsonDocument jsonDocument = QJsonDocument::fromJson(reply->readAll(), &error);
+
+    QVariant statusCode =
+    reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+
+    int statusCodeInt = statusCode.toInt();
+    if (statusCodeInt == 301 || statusCodeInt == 302) {
+        // The target URL if it was a redirect:
+        QVariant redirectionTargetUrl =
+            reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+        qDebug() << "status code = " << statusCodeInt << "redirection Url is " << redirectionTargetUrl.toString() << endl;
+    }
+    if (statusCodeInt != 200) {
+        qDebug() << "Response err: status code = " << statusCodeInt << endl;
+        return;
+    }
+
+    if (error.error == QJsonParseError::NoError) {
+        if (!(jsonDocument.isNull() || jsonDocument.isEmpty()) && jsonDocument.isObject()) {
+            QVariantMap response = jsonDocument.toVariant().toMap();
+            qDebug() << "response = " << response << endl;
+            if (!response[QLatin1String("result_code")].toString().compare("4")) {
+                qDebug() << "varification successed" << endl;
+                submitLoginRequest();
+            } else if (!response[QLatin1String("result_message")].toString().isEmpty()) {
+                qDebug() << response[QLatin1String("result_message")].toString() << endl;
+                refreshVarificationImage();
+            }
+        }
+    } else {
+        qDebug() << "Error: " << error.errorString() << endl;
+    }
+
+}
+
+void MainWindow::processPassportUamtkResponse(QNetworkReply *reply)
+{
+    QJsonParseError error;
+    QJsonDocument jsonDocument = QJsonDocument::fromJson(reply->readAll(), &error);
+
+    QVariant statusCode =
+    reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+
+    int statusCodeInt = statusCode.toInt();
+    if (statusCodeInt == 301 || statusCodeInt == 302) {
+        // The target URL if it was a redirect:
+        QVariant redirectionTargetUrl =
+            reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+        qDebug() << "status code = " << statusCodeInt << "redirection Url is " << redirectionTargetUrl.toString() << endl;
+    }
+    if (statusCodeInt != 200) {
+        qDebug() << "Response err: status code = " << statusCodeInt << endl;
+        return;
+    }
+
+    if (error.error == QJsonParseError::NoError) {
+        if (!(jsonDocument.isNull() || jsonDocument.isEmpty()) && jsonDocument.isObject()) {
+            QVariantMap response = jsonDocument.toVariant().toMap();
+            qDebug() << "response = " << response << endl;
+            if (response[QLatin1String("result_code")].toInt() == 0) {
+                QString apptk = response[QLatin1String("newapptk")].toString();
+                if (!apptk.isEmpty())
+                    UserData::instance()->setApptk(apptk);
+                NetHelper::instance()->passportUamtkClient(apptk);
+            }  else if (!response[QLatin1String("result_message")].toString().isEmpty()) {
+                qDebug() << response[QLatin1String("result_message")].toString() << endl;
+            }
+        }
+    } else {
+        qDebug() << "Error: " << error.errorString() << endl;
+    }
+}
+
+void MainWindow::processPassportUamtkClientResponse(QNetworkReply *reply)
+{
+    QJsonParseError error;
+    QJsonDocument jsonDocument = QJsonDocument::fromJson(reply->readAll(), &error);
+
+    QVariant statusCode =
+    reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+
+    int statusCodeInt = statusCode.toInt();
+    if (statusCodeInt == 301 || statusCodeInt == 302) {
+        // The target URL if it was a redirect:
+        QVariant redirectionTargetUrl =
+            reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+        qDebug() << "status code = " << statusCodeInt << "redirection Url is " << redirectionTargetUrl.toString() << endl;
+    }
+    if (statusCodeInt != 200) {
+        qDebug() << "Response err: status code = " << statusCodeInt << endl;
+        return;
+    }
+
+    if (error.error == QJsonParseError::NoError) {
+        if (!(jsonDocument.isNull() || jsonDocument.isEmpty()) && jsonDocument.isObject()) {
+            QVariantMap response = jsonDocument.toVariant().toMap();
+            qDebug() << "response = " << response << endl;
+            if (response[QLatin1String("result_code")].toInt() == 0) {
+                qDebug() << "login successed" << endl;
+                QString userName = response[QLatin1String("username")].toString();
+                if (!userName.isEmpty())
+                    UserData::instance()->getUserDetailInfo().usesrName = userName;
+                if (loginDialog)
+                    loginDialog->close();
+            }  else if (!response[QLatin1String("result_message")].toString().isEmpty()) {
+                qDebug() << response[QLatin1String("result_message")].toString() << endl;
+            }
+        }
+    } else {
+        qDebug() << "Error: " << error.errorString() << endl;
     }
 }
 
 void MainWindow::refreshVarificationImage()
 {
+    VarCodeLabel *label = static_cast<VarCodeLabel *>(loginDialog->layout()->itemAt(1)->widget());
+    label->clearSelected();
     NetHelper::instance()->getVarificationImage();
+}
+
+void MainWindow::doVarification()
+{
+    VarCodeLabel *varLabel = static_cast<VarCodeLabel *>(loginDialog->layout()->itemAt(1)->widget());
+    QVector<QPoint> points;
+    QVector<mapArea> &ma = varLabel->getPoints();
+
+    for (int i = 0; i < ma.size(); i++) {
+        if (ma[i].selected) {
+            points.push_back(ma[i].pos);
+        }
+    }
+    NetHelper::instance()->doVarification(points);
+}
+
+void MainWindow::uamIsLogin()
+{
+    NetHelper::instance()->userIsLogin();
 }
 
 void MainWindow::submitLoginRequest()
 {
-    NetHelper::instance()->doLogin();
+    VarCodeLabel *varLabel = static_cast<VarCodeLabel *>(loginDialog->layout()->itemAt(1)->widget());
+    QFormLayout *fLayout = static_cast<QFormLayout *>(loginDialog->layout()->itemAt(0)->layout());
+    QLineEdit *accountEdit = static_cast<QLineEdit *>(fLayout->itemAt(0, QFormLayout::FieldRole)->widget());
+    QLineEdit *passwdEdit = static_cast<QLineEdit *>(fLayout->itemAt(1, QFormLayout::FieldRole)->widget());
+    QString account = accountEdit->text().trimmed();
+    QString passwd = passwdEdit->text().trimmed();
+    QVector<QPoint> points;
+    QVector<mapArea> &ma = varLabel->getPoints();
+
+    for (int i = 0; i < ma.size(); i++) {
+        if (ma[i].selected) {
+            points.push_back(ma[i].pos);
+        }
+    }
+    varLabel->clearSelected();
+    if (account.isEmpty()) {
+        QMessageBox::warning(this, tr("Warning"), tr("username can not be empty."), QMessageBox::Ok);
+        return;
+    }
+    if (passwd.isEmpty()) {
+        QMessageBox::warning(this, tr("Warning"), tr("password can not be empty."), QMessageBox::Ok);
+        return;
+    }
+    if (points.isEmpty()) {
+        QMessageBox::warning(this, tr("Warning"), tr("please select varification code."), QMessageBox::Ok);
+        return;
+    }
+    NetHelper::instance()->doLogin(points, account, passwd);
 }
 
 void MainWindow::queryTicket()
@@ -519,7 +790,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    int ret = QMessageBox::warning(this,
+    /*int ret = QMessageBox::warning(this,
                                    tr("提示"),
                                    tr("退出程序吗？"),
                                    QMessageBox::Yes | QMessageBox::No);
@@ -529,7 +800,9 @@ void MainWindow::closeEvent(QCloseEvent *event)
         event->accept();
     } else {
         event->ignore();
-    }
+    }*/
+    writeSettings();
+    event->accept();
 }
 
 void MainWindow::readSettings()

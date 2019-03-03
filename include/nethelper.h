@@ -11,10 +11,22 @@ class QNetworkReply;
 
 enum ENETRPLYENUM {
     EGETVARIFICATIONCODE = 1,
+    EDOVARIFICATION,
     ELOGIN,
     EQUERYTICKET,
     EGETSTATIONNAMETXT,
+    EPASSPORTUAMTK,
+    EPASSPORTUAMTKCLIENT,
+    EQUERYLOGINSTATUS,
 };
+
+#define BASEURL "https://kyfw.12306.cn"
+#define PASSPORTURL "https://kyfw.12306.cn/passport"
+#define LOGINURL "https://kyfw.12306.cn/passport/web/login"
+#define TICKETURL "https://kyfw.12306.cn/otn/leftTicket"
+#define CAPTCHACHECKURL "https://kyfw.12306.cn/passport/captcha/captcha-check"
+#define CAPTCHAIMAGEURL "https://kyfw.12306.cn/passport/captcha/captcha-image"
+#define USERAGENT "Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36"
 
 class NetHelper : public QObject
 {
@@ -24,9 +36,13 @@ public:
     static NetHelper *instance();
     void get(const QString &url);
     void getVarificationImage();
-    void doLogin();
+    void doVarification(QVector<QPoint> points);
+    void doLogin(QVector<QPoint> points, QString name, QString passwd);
     void queryTicket(const QString &staStartCode, const QString &staEndCode, const QString &date);
     void getStationNameTxt();
+    void passportUamtk();
+    void passportUamtkClient(QString apptk);
+    void userIsLogin();
 
 signals:
     void finished(QNetworkReply *reply);

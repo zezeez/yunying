@@ -3,5 +3,6 @@
         <file>images/selected.png</file>
         <file>images/swap.png</file>
         <file>images/ticket.ico</file>
+        <file>images/selected.svg</file>
     </qresource>
 </RCC>

@@ -86,6 +86,13 @@ struct UserConfig {
     QString tourDate;
 };
 
+struct UserDetailInfo {
+    QString account;
+    QString passwd;
+    QString usesrName;
+    QString phone;
+};
+
 class UserData
 {
 public:
@@ -95,9 +102,14 @@ public:
     int readStationFile(const QString &file);
     int writeStationFile(const QByteArray &data);
     void setStationInfo(const QString &data);
+
     inline struct UserConfig &getUserConfig()
     {
         return userConfig;
+    }
+    inline struct UserDetailInfo &getUserDetailInfo()
+    {
+        return detailInfo;
     }
     inline QMap<QString, QStringList> *getStaMap()
     {
@@ -106,6 +118,22 @@ public:
     inline QHash<QString, QString> *getStaCode()
     {
         return staCode;
+    }
+    QString getApptk()
+    {
+        return apptk;
+    }
+    void setApptk(QString tk)
+    {
+        apptk = tk;
+    }
+    QString getUamtk()
+    {
+        return uamtk;
+    }
+    void setUamtk(QString tk)
+    {
+        uamtk = tk;
     }
 
     bool readConfigFile();
@@ -122,6 +150,9 @@ private:
     QMap<QString, QStringList> *staMap;
     QHash<QString, QString> *staCode;
     struct UserConfig userConfig;
+    struct UserDetailInfo detailInfo;
+    QString apptk;
+    QString uamtk;
 
     void readXBEL();
     QXmlStreamReader rxml;

@@ -101,17 +101,23 @@ private:
     InputCompleter *c;
 };
 
+struct mapArea {
+    bool active;
+    bool selected;
+    QPoint pos;
+    QPixmap pixmap;
+};
+
 class VarCodeLabel : public QLabel
 {
     Q_OBJECT
 public:
-    VarCodeLabel(QWidget *parent = nullptr);
-    ~VarCodeLabel();
+    explicit VarCodeLabel(QWidget *parent = nullptr);
+    ~VarCodeLabel() override;
+    int getArea(int x, int y);
+    QVector<mapArea> &getPoints();
+    void clearSelected();
 
-    QVector<QPoint> &getPoints()
-    {
-        return points;
-    }
 protected:
     void mouseMoveEvent(QMouseEvent *ev) override;
     void mousePressEvent(QMouseEvent *ev) override;
@@ -119,8 +125,8 @@ protected:
     virtual void paintEvent(QPaintEvent* event) override;
 
 private:
-    QPixmap pixMap;
-    QVector<QPoint> points;
+    QVector<mapArea> area;
+    QLabel picLabel[9];
 };
 
 #endif // COMPLETEEDIT_H
