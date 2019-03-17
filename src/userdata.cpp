@@ -92,8 +92,70 @@ bool UserData::readConfig()
             userConfig.staToName = rxml.readElementText();
         else if (rxml.name() == QLatin1String("TourDate"))
             userConfig.tourDate = rxml.readElementText();
+        else if (rxml.name() == QLatin1String("Account"))
+            detailInfo.account = rxml.readElementText();
+        else if (rxml.name() == QLatin1String("Passwd"))
+            detailInfo.passwd = rxml.readElementText();
+        else {
+            qDebug() << "Ignore unrecognise field " << rxml.name() << endl;
+        }
     }
     return true;
+}
+
+QString UserData::seatTypeToDesc(int idx)
+{
+    switch (idx) {
+    case ESEATSPECIALSEAT:
+        return QStringLiteral("特等座");
+    case ESEATFIRSTPRISEAT:
+        return QStringLiteral("一等座");
+    case ESEATSECONDPRISEAT:
+        return QStringLiteral("二等座");
+    case ESEATADVSOFTCROUCH:
+        return QStringLiteral("高级软卧");
+    case ESEATSOFTCROUCH:
+        return QStringLiteral("软卧");
+    case ESEATSTIRCROUCH:
+        return QStringLiteral("动卧");
+    case ESEATHARDCROUCH:
+        return QStringLiteral("硬卧");
+    case ESEATSOFTSEAT:
+        return QStringLiteral("软座");
+    case ESEATHARDSEAT:
+        return QStringLiteral("硬座");
+    case ESEATNOSEAT:
+        return QStringLiteral("无座");
+    default:
+        return "";
+    }
+}
+
+enum ESEATTYPEENUM UserData::SeatDescToType(QString desc)
+{
+    if (!desc.compare(QStringLiteral("特等座")))
+        return ESEATSPECIALSEAT;
+    else if (!desc.compare(QStringLiteral("一等座")))
+        return ESEATFIRSTPRISEAT;
+    else if (!desc.compare(QStringLiteral("二等座")))
+        return ESEATSECONDPRISEAT;
+    else if (!desc.compare(QStringLiteral("高级软卧")))
+        return ESEATADVSOFTCROUCH;
+    else if (!desc.compare(QStringLiteral("软卧")))
+        return ESEATSOFTCROUCH;
+    else if (!desc.compare(QStringLiteral("动卧")))
+        return ESEATSTIRCROUCH;
+    else if (!desc.compare(QStringLiteral("硬卧")))
+        return ESEATHARDCROUCH;
+    else if (!desc.compare(QStringLiteral("软座")))
+        return ESEATSOFTSEAT;
+    else if (!desc.compare(QStringLiteral("硬座")))
+        return ESEATHARDSEAT;
+    else if (!desc.compare(QStringLiteral("无座")))
+        return ESEATNOSEAT;
+    else
+        return ESEATTYPEINVALID;
+
 }
 
 bool UserData::writeConfigFile()
@@ -123,6 +185,8 @@ bool UserData::writeConfig()
     wxml.writeTextElement(QStringLiteral("ToStationName"), userConfig.staToName);
     //wxml.writeTextElement(QStringLiteral("ToStationCode"), userConfig.staToCode);
     wxml.writeTextElement(QStringLiteral("TourDate"), userConfig.tourDate);
+    wxml.writeTextElement(QStringLiteral("Account"), detailInfo.account);
+    wxml.writeTextElement(QStringLiteral("Passwd"), detailInfo.passwd);
     wxml.writeEndElement();
     return true;
 }

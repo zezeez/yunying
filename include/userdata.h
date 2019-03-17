@@ -17,6 +17,20 @@ enum stationInfoEnum {
     ESTACURRENTCOUNT,
 };
 
+enum ESEATTYPEENUM {
+    ESEATSPECIALSEAT = 0,
+    ESEATFIRSTPRISEAT,
+    ESEATSECONDPRISEAT,
+    ESEATADVSOFTCROUCH,
+    ESEATSOFTCROUCH,
+    ESEATSTIRCROUCH,
+    ESEATHARDCROUCH,
+    ESEATSOFTSEAT,
+    ESEATHARDSEAT,
+    ESEATNOSEAT,
+    ESEATTYPEINVALID = -1
+};
+
 enum TrainTableColumnEnum {
     ETRAINNUM = 0,
     EFROMTOSTATION,
@@ -78,6 +92,17 @@ enum TrainInfoEnum {
     EUNKNOWN2
 };
 
+enum SHOWTRAINTYPE {
+    EALL,
+    EGTRAIN,
+    EDTRAIN,
+    ECTRAIN,
+    EZTRAIN,
+    ETTRAIN,
+    EKTRAIN,
+    EOTRAIN
+};
+
 struct UserConfig {
     QString staFromName;
     QString staToName;
@@ -86,11 +111,44 @@ struct UserConfig {
     QString tourDate;
 };
 
+struct PassengerInfo {
+    inline bool operator == (const struct PassengerInfo &info) const {
+        if (!passName.compare(info.passName) && !passIdNo.compare(info.passIdNo))
+            return true;
+        return false;
+    }
+    QString passName;
+    QString code;
+    QString passIdTypeName;
+    QString passIdTypeCode;
+    QString passIdNo;
+    QString passType;
+    QString passTypeName;
+    QString mobile;
+    QString phone;
+    QString indexId;
+};
+
 struct UserDetailInfo {
     QString account;
     QString passwd;
-    QString usesrName;
-    QString phone;
+    QString userName;
+    QVector<struct PassengerInfo> passenger;
+};
+
+struct UserSetting {
+    bool showTrain[8];
+};
+
+struct TrainInfo {
+    QString securityStr;
+    QString trainNo;
+};
+
+struct GrabTicketSetting {
+    QVector<struct PassengerInfo> selectedPassenger;
+    QVector<QString> trainNo;
+    QVector<enum ESEATTYPEENUM> seatType;
 };
 
 class UserData
@@ -110,6 +168,18 @@ public:
     inline struct UserDetailInfo &getUserDetailInfo()
     {
         return detailInfo;
+    }
+    inline QVector<struct TrainInfo> &getTrainInfo()
+    {
+        return trainInfo;
+    }
+    inline struct UserSetting &getUserSetting()
+    {
+        return setting;
+    }
+    inline struct GrabTicketSetting &getGrabTicketSetting()
+    {
+        return grabSetting;
     }
     inline QMap<QString, QStringList> *getStaMap()
     {
@@ -135,6 +205,16 @@ public:
     {
         uamtk = tk;
     }
+    int getTableViewIdx()
+    {
+        return tableViewIdx;
+    }
+    void setTableViewIdx(int idx)
+    {
+        tableViewIdx = idx;
+    }
+    QString seatTypeToDesc(int idx);
+    enum ESEATTYPEENUM SeatDescToType(QString desc);
 
     bool readConfigFile();
     bool readConfig();
@@ -151,6 +231,11 @@ private:
     QHash<QString, QString> *staCode;
     struct UserConfig userConfig;
     struct UserDetailInfo detailInfo;
+    struct UserSetting setting;
+    struct GrabTicketSetting grabSetting;
+    QVector<struct TrainInfo> trainInfo;
+    QList<QString> wantedTrain;
+    int tableViewIdx;
     QString apptk;
     QString uamtk;
 

@@ -32,13 +32,15 @@ SOURCES += \
         src/mainwindow.cpp \
     src/userdata.cpp \
     src/nethelper.cpp \
-    src/completeredit.cpp
+    src/completeredit.cpp \
+    src/parser.cpp
 
 HEADERS += \
         include/mainwindow.h \
     include/nethelper.h \
     include/userdata.h \
-    include/completeedit.h
+    include/completeedit.h \
+    include/parser.h
 
 FORMS += \
         mainwindow.ui

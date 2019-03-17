@@ -34,10 +34,6 @@ QLineEdit {
   selection-background-color: darkgray;
 }
 
-QLineEdit:hover {
-  border: white;
-}
-
 QLineEdit[echoMode="2"] {
   lineedit-password-character: 9679;
 }

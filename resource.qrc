@@ -4,6 +4,7 @@
         <file>images/swap.png</file>
         <file>images/ticket.ico</file>
         <file>images/selected.svg</file>
+        <file>images/splash.jpeg</file>
     </qresource>
     <qresource prefix="/res">
         <file>main.qss</file>
