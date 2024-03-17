@@ -21,6 +21,7 @@ QPushButton {
   font: bold 14px;
   min-width: 4em;
   padding: 2px;
+  color: #1874CD;
 }
 QPushButton:hover {
   background-color: #B2DFEE;
@@ -30,7 +31,7 @@ QLineEdit {
   border: 2px solid gray;
   border-radius: 10px;
   padding: 0 8px;
-  background: yellow;
+  background: #F0FFFF;
   selection-background-color: darkgray;
 }
 
@@ -43,7 +44,7 @@ QLineEdit:read-only {
 }
 
 QTableView {
- /*selection-background-color: qlineargradient(x1: 0, y1: 0, x2: 0.5, y2: 0.5,
+  /*selection-background-color: qlineargradient(x1: 0, y1: 0, x2: 0.5, y2: 0.5,
                              stop: 0 #FF92BB, stop: 1 white);*/
   selection-background-color: #87CEFA;
 }
@@ -122,7 +123,7 @@ QMenu::item {
 }
 
 QMenu::item:selected {
-  border-color: darkblue;
+  /*border-color: darkblue;*/
   background: rgba(100, 100, 100, 150);
 }
 
@@ -171,6 +172,6 @@ QMenuBar::item:pressed {
 QDateEdit {
   spacing: 3px;
   padding: 1px 4px;
-  background: #008B8B;
+  background: #87CEEB;
   border-radius: 4px;
 }

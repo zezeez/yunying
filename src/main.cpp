@@ -2,6 +2,14 @@
 #include <QApplication>
 #include <QFile>
 #include <QSplashScreen>
+#include <QScreen>
+#include <QTimeZone>
+#include <sysutil.h>
+#include "nethelper.h"
+
+#define _ QStringLiteral
+
+MainWindow *w;
 
 int main(int argc, char *argv[])
 {
@@ -10,24 +18,40 @@ int main(int argc, char *argv[])
     splash->setPixmap(QPixmap(QStringLiteral(":/icon/images/splash.jpeg")));
     splash->show();
 
-    splash->showMessage(QObject::tr("Loading resource..."),
+    splash->showMessage(QObject::tr("正在加载资源..."),
                         Qt::AlignBottom | Qt::AlignLeft, Qt::white);
     QFile qss(QStringLiteral(":/res/main.qss"));
     if (qss.open(QFile::ReadOnly)) {
         a.setStyleSheet(qss.readAll());
         qss.close();
     }
-    splash->showMessage(QObject::tr("Loading resource finished"),
+    splash->showMessage(QObject::tr("正在加载站点数据..."),
                         Qt::AlignBottom | Qt::AlignLeft, Qt::white);
 
-    MainWindow w;
-    w.setWindowTitle(QString("12306 qt client"));
-    w.setWindowIcon(QIcon(QStringLiteral(":/icon/images/ticket.ico")));
+    QCoreApplication::setOrganizationName(_("mpsoftware ltd.co"));
+    QCoreApplication::setOrganizationDomain(_("mupiao.xyz"));
+    QCoreApplication::setApplicationName(_("云映"));
 
-    splash->finish(&w);
+    w = new MainWindow;
+    w->setWindowTitle(QObject::tr("云映"));
+    w->setWindowIcon(QIcon(_(":/icon/images/ticket.ico")));
+    w->loadStationName();
+
+    QList<QScreen *> screen = QGuiApplication::screens();
+    if (!screen.isEmpty()) {
+        QRect rect = screen[0]->geometry();
+        w->move((rect.width() - w->width()) / 2, (rect.height() - w->height()) / 2);
+    }
+
+    splash->showMessage(QObject::tr("加载完成"),
+                        Qt::AlignBottom | Qt::AlignLeft, Qt::white);
+    splash->finish(w);
     delete splash;
-
-    w.show();
-
+    //NetHelper::instance()->initLoginCookie();
+    //NetHelper::instance()->getLoginConf();
+    //NetHelper::instance()->isUamLogin();
+    w->show();
+    extern void test();
+    //test();
     return a.exec();
 }

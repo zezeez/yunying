@@ -1,10 +1,31 @@
 <RCC>
     <qresource prefix="/icon">
-        <file>images/selected.png</file>
         <file>images/swap.png</file>
         <file>images/ticket.ico</file>
-        <file>images/selected.svg</file>
         <file>images/splash.jpeg</file>
+        <file>images/logo@2x.png</file>
+        <file>images/loading.gif</file>
+        <file>images/login-success.png</file>
+        <file>images/arrow_down.png</file>
+        <file>images/arrow_left.png</file>
+        <file>images/arrow_right.png</file>
+        <file>images/arrow_up.png</file>
+        <file>images/double_arrow_left.png</file>
+        <file>images/double_arrow_right.png</file>
+        <file>images/qrcode_invalid.png</file>
+        <file>images/bad.png</file>
+        <file>images/good.png</file>
+        <file>images/perfect.png</file>
+        <file>images/fuxing.png</file>
+        <file>images/zineng.png</file>
+        <file>images/fu.ico</file>
+        <file>images/zi.ico</file>
+        <file>images/start.ico</file>
+        <file>images/end.ico</file>
+        <file>images/pass.ico</file>
+        <file>images/dong.ico</file>
+        <file>images/choosed_seat.png</file>
+        <file>images/unchoosed_seat.png</file>
     </qresource>
     <qresource prefix="/res">
         <file>main.qss</file>

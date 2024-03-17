@@ -28,19 +28,46 @@ INCLUDEPATH += include
 # DEPENDPATH = .
 
 SOURCES += \
+    src/analysis.cpp \
+    src/frozentrain.cpp \
+    src/loginconf.cpp \
+    src/logindialog.cpp \
         src/main.cpp \
         src/mainwindow.cpp \
+    src/passengerdialog.cpp \
+    src/seatdialog.cpp \
+    src/seattypedialog.cpp \
+    src/settingdialog.cpp \
+    src/sliderwidget.cpp \
+    src/sm4.cpp \
+    src/sysutil.cpp \
+    src/trainnodialog.cpp \
     src/userdata.cpp \
     src/nethelper.cpp \
     src/completeredit.cpp \
-    src/parser.cpp
+    lib/smtp/src/smtp.cpp
 
 HEADERS += \
+    include/12306.h \
+    include/analysis.h \
+    include/cookieapi.h \
+    include/frozentrain.h \
+    include/icondelegate.h \
+    include/loginconf.h \
+    include/logindialog.h \
         include/mainwindow.h \
     include/nethelper.h \
+    include/passengerdialog.h \
+    include/seatdialog.h \
+    include/seattypedialog.h \
+    include/settingdialog.h \
+    include/sliderwidget.h \
+    include/sm4.h \
+    include/sysutil.h \
+    include/trainnodialog.h \
     include/userdata.h \
     include/completeedit.h \
-    include/parser.h
+    lib/smtp/include/smtp.h
 
 FORMS += \
         mainwindow.ui

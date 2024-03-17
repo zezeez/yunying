@@ -2,68 +2,16 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
-#include "nethelper.h"
 
-UserData::UserData(): staMap(new QMap<QString, QStringList>),
-    staCode(new QHash<QString, QString>)
+#define _ QStringLiteral
+
+UserData::UserData(): staCode(new QHash<QString, QString>)
 {
-    if (readStationFile("./station_name.txt") < 0) {
-        NetHelper::instance()->getStationNameTxt();
-    }
 }
 
-int UserData::readStationFile(const QString &filename)
+void UserData::setStationCode(const QByteArray &name, const QByteArray &code)
 {
-    QFile file(filename);
-
-    if (file.open(QIODevice::ReadOnly)) {
-        QTextStream data(&file);
-        QString text = data.readAll();
-        setStationInfo(text);
-        file.close();
-        return 0;
-    }
-    return -1;
-}
-
-void UserData::setStationInfo(const QString &data)
-{
-    QStringList staInfo = data.split('@');
-    QStringList::const_iterator it;
-
-    for (it = staInfo.cbegin(), ++it; it != staInfo.cend(); ++it) {
-        QStringList staName = it->split('|');
-        if (staName.size() >=  ESTACURRENTCOUNT) {
-            staMap->insertMulti(staName[EFULLSTAPINYIN], staName);
-            staMap->insertMulti(staName[ESIMPLESTAPINYIN], staName);
-            staCode->insert(staName[ESTANAME], staName[ESTACODE]);
-        }
-    }
-}
-
-int UserData::writeStationFile(const QByteArray &data)
-{
-    QFile file(QStringLiteral("./station_name.txt"));
-
-    setStationInfo(data);
-    if (file.open(QIODevice::WriteOnly)) {
-        QTextStream stream(&file);
-        stream << data;
-        file.close();
-        return 0;
-    }
-    return -1;
-}
-
-void UserData::proccessStationNameTxt(const QByteArray &data)
-{
-    writeStationFile(data);
-}
-
-UserData *UserData::instance()
-{
-    static UserData ud;
-    return &ud;
+    staCode->insert(QString::fromUtf8(name), QString::fromUtf8(code));
 }
 
 bool UserData::readConfigFile()
@@ -83,21 +31,21 @@ bool UserData::readConfigFile()
 
 bool UserData::readConfig()
 {
-    Q_ASSERT(rxml.isStartElement() && rxml.name() == QLatin1String("config"));
+    Q_ASSERT(rxml.isStartElement() && rxml.name() == _("config"));
 
     while (rxml.readNextStartElement()) {
-        if (rxml.name() == QLatin1String("FromStationName"))
+        if (rxml.name() == _("FromStationName"))
             userConfig.staFromName = rxml.readElementText();
-        else if (rxml.name() == QLatin1String("ToStationName"))
+        else if (rxml.name() == _("ToStationName"))
             userConfig.staToName = rxml.readElementText();
-        else if (rxml.name() == QLatin1String("TourDate"))
+        else if (rxml.name() == _("TourDate"))
             userConfig.tourDate = rxml.readElementText();
-        else if (rxml.name() == QLatin1String("Account"))
-            detailInfo.account = rxml.readElementText();
-        else if (rxml.name() == QLatin1String("Passwd"))
-            detailInfo.passwd = rxml.readElementText();
+        else if (rxml.name() == _("Account"))
+            loginInfo.account = rxml.readElementText();
+        else if (rxml.name() == _("Passwd"))
+            loginInfo.passwd = rxml.readElementText();
         else {
-            qDebug() << "Ignore unrecognise field " << rxml.name() << endl;
+            qDebug() << "Ignore unrecognise field " << rxml.name() << Qt::endl;
         }
     }
     return true;
@@ -131,31 +79,63 @@ QString UserData::seatTypeToDesc(int idx)
     }
 }
 
-enum ESEATTYPEENUM UserData::SeatDescToType(QString desc)
+struct PassengerInfo UserData::setPassengerInfo(QVariantMap &map)
 {
-    if (!desc.compare(QStringLiteral("特等座")))
-        return ESEATSPECIALSEAT;
-    else if (!desc.compare(QStringLiteral("一等座")))
-        return ESEATFIRSTPRISEAT;
-    else if (!desc.compare(QStringLiteral("二等座")))
-        return ESEATSECONDPRISEAT;
-    else if (!desc.compare(QStringLiteral("高级软卧")))
-        return ESEATADVSOFTCROUCH;
-    else if (!desc.compare(QStringLiteral("软卧")))
-        return ESEATSOFTCROUCH;
-    else if (!desc.compare(QStringLiteral("动卧")))
-        return ESEATSTIRCROUCH;
-    else if (!desc.compare(QStringLiteral("硬卧")))
-        return ESEATHARDCROUCH;
-    else if (!desc.compare(QStringLiteral("软座")))
-        return ESEATSOFTSEAT;
-    else if (!desc.compare(QStringLiteral("硬座")))
-        return ESEATHARDSEAT;
-    else if (!desc.compare(QStringLiteral("无座")))
-        return ESEATNOSEAT;
-    else
-        return ESEATTYPEINVALID;
+    QString idx;
+    struct PassengerInfo pinfo;
 
+    idx = map[QLatin1String("allEncStr")].toString();
+    pinfo.allEncStr = idx;
+
+    idx = map[QLatin1String("passenger_name")].toString();
+    pinfo.passName = idx;
+
+    idx = map[QLatin1String("passenger_id_type_code")].toString();
+    pinfo.passIdTypeCode = idx;
+
+    idx = map[QLatin1String("passenger_id_type_name")].toString();
+    pinfo.passIdTypeName = idx;
+
+    idx = map[QLatin1String("passenger_id_no")].toString();
+    pinfo.passIdNo = idx;
+
+    idx = map[QLatin1String("passenger_type")].toString();
+    pinfo.passType = idx;
+
+    idx = map[QLatin1String("passenger_type_name")].toString();
+    pinfo.passTypeName = idx;
+
+    idx = map[QLatin1String("mobile_no")].toString();
+    pinfo.mobile = idx;
+
+    idx = map[QLatin1String("phone_no")].toString();
+    pinfo.phone = idx;
+
+    idx = map[QLatin1String("index_id")].toString();
+    pinfo.indexId = idx;
+
+    return pinfo;
+}
+
+bool UserData::whatsSelect(bool onlyNormal)
+{
+    if (onlyNormal) {
+        if (djPassenger.size() == 0)
+            return true;
+        return grabSetting.selectedPassenger.size() != 0;
+    }
+    return grabSetting.selectedDjPassenger.size() != 0;
+}
+
+const QString UserData::getpassengerTickets()
+{
+    QVector<struct PassengerInfo>::const_iterator it;
+    QString ticketStr;
+    for (it = grabSetting.selectedPassenger.cbegin();
+         it != grabSetting.selectedPassenger.cbegin(); ++it) {
+        //ticketStr = grabSetting
+    }
+    return ticketStr;
 }
 
 bool UserData::writeConfigFile()
@@ -185,14 +165,60 @@ bool UserData::writeConfig()
     wxml.writeTextElement(QStringLiteral("ToStationName"), userConfig.staToName);
     //wxml.writeTextElement(QStringLiteral("ToStationCode"), userConfig.staToCode);
     wxml.writeTextElement(QStringLiteral("TourDate"), userConfig.tourDate);
-    wxml.writeTextElement(QStringLiteral("Account"), detailInfo.account);
-    wxml.writeTextElement(QStringLiteral("Passwd"), detailInfo.passwd);
+    wxml.writeTextElement(QStringLiteral("Account"), loginInfo.account);
+    wxml.writeTextElement(QStringLiteral("Passwd"), loginInfo.passwd);
     wxml.writeEndElement();
     return true;
 }
 
+bool UserData::isTimeInRange(int hour, int minute)
+{
+    int beginHour = grabSetting.trainPrio.timeRange.beginHour;
+    int endHour = grabSetting.trainPrio.timeRange.endHour;
+    if (hour >= beginHour && hour <= endHour) {
+        int beginMinute = grabSetting.trainPrio.timeRange.beginMinute;
+        int endMinute = grabSetting.trainPrio.timeRange.endMinute;
+        if (hour == beginHour && hour == endHour) {
+            return minute >= beginMinute && minute <= endMinute;
+        } else if (hour == beginHour) {
+            return minute >= beginMinute;
+        } else if (hour == endHour) {
+            return minute <= endMinute;
+        } else {
+            return true;
+        }
+    } else {
+        return false;
+    }
+}
+
 UserData::~UserData()
 {
-    delete staMap;
     delete staCode;
+}
+
+QString seatTypeSubmtiCodeTransToDesc(QChar seatType)
+{
+    switch (seatType.toLatin1()) {
+    case '1':
+        return _("硬座");
+    case '3':
+        return _("硬卧");
+    case '4':
+        return _("软卧");
+    case '9':
+        return _("商务");
+    case 'A':
+        return _("高级动卧");
+    case 'F':
+        return _("动卧");
+    case 'O':
+        return _("二等座");
+    case 'M':
+        return _("一等座");
+    case 'P':
+        return _("特等座");
+    default:
+        return _("");
+    }
 }

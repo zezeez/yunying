@@ -7,15 +7,9 @@
 #include <QIODevice>
 #include <QXmlStreamReader>
 #include <QXmlStreamWriter>
+#include <QString>
+#include <QVariantMap>
 
-enum stationInfoEnum {
-    ETHREEPINYINCODE = 0,
-    ESTANAME,
-    ESTACODE,
-    EFULLSTAPINYIN,
-    ESIMPLESTAPINYIN,
-    ESTACURRENTCOUNT,
-};
 
 enum ESEATTYPEENUM {
     ESEATSPECIALSEAT = 0,
@@ -28,27 +22,50 @@ enum ESEATTYPEENUM {
     ESEATSOFTSEAT,
     ESEATHARDSEAT,
     ESEATNOSEAT,
-    ESEATTYPEINVALID = -1
+    ESEATTYPEMAX
 };
 
 enum TrainTableColumnEnum {
-    ETRAINNUM = 0,
-    EFROMTOSTATION,
-    ESTARTARRIVETIME,
-    EUSEDTIME,
-    ESPECIALSEAT,
-    EFIRSTPRISEAT,
-    ESECONDPRISEAT,
-    EADVSOFTCROUCH,
-    ESOFTCROUCH,
-    ESTIRCROUCH,
-    EHARDCROUCH,
-    ESOFTSEAT,
-    EHARDSEAT,
-    ENOSEAT,
-    EOTHER,
-    EREMARK,
-    ETRAINTABLECOLUMNEND
+    ETRAINNOCOL = 0,
+    EFROMSTATIONCOL,
+    ETOSTATIONCOL,
+    ESTARTTIMECOL,
+    EARRIVETIMECOL,
+    EUSEDTIMECOL,
+    ESPECIALSEATCOL,
+    EFIRSTPRISEATCOL,
+    ESECONDPRISEATCOL,
+    EADVSOFTCROUCHCOL,
+    ESOFTCROUCHCOL,
+    ESTIRCROUCHCOL,
+    EHARDCROUCHCOL,
+    ESOFTSEATCOL,
+    EHARDSEATCOL,
+    ENOSEATCOL,
+    EOTHERCOL,
+    EREMARKCOL,
+    ETRAINTABLECOLUMNENDTOTAL
+};
+
+static QStringList trainTableColumnDesc = {
+    "车次",
+    "出发站",
+    "到达站",
+    "出发时间",
+    "到达时间",
+    "用时",
+    "商务/特等",
+    "一等座",
+    "二等座",
+    "高级软卧",
+    "软卧",
+    "动卧",
+    "硬卧",
+    "软座",
+    "硬座",
+    "无座",
+    "其他",
+    "备注"
 };
 
 enum TrainInfoEnum {
@@ -62,7 +79,7 @@ enum TrainInfoEnum {
     ETOSTATIONTELECODE,
     ESTARTTIME,
     EARRIVETIME,
-    ESPEEDTIME,
+    ESPENDTIME,
     ECANWEBBUY,
     EYPINFO,
     ESTARTTRAINDATE,
@@ -73,23 +90,33 @@ enum TrainInfoEnum {
     EISSUPPORTCARD,
     ECOTROLLEDTRAINFLAG,
     EGGNUM,
-    EGRNUM,
-    EQTNUM,
-    ERWNUM,
-    ERZNUM,
-    ETZNUM,
-    EWZNUM,
-    EYBNUM,
-    EYWNUM,
-    EYZNUM,
-    EZENUM,
-    EZYNUM,
-    ESWZNUM,
-    ESRBNUM,
+    EGRNUM,  // 高级软卧
+    EQTNUM,  // 其他
+    ERWNUM,  // 软卧
+    ERZNUM,  // 软座
+    ETZNUM,  //
+    EWZNUM,  // 无座
+    EYBNUM,  // 动卧
+    EYWNUM,  // 硬卧
+    EYZNUM,  // 硬座
+    EZENUM,  // 二等座
+    EZYNUM,  // 一等座
+    ESWZNUM,  // 商务座
+    ESRBNUM,  //
     EYPEX,
     ESEATTYPES,
-    EUNKNOWN1,
-    EUNKNOWN2
+    EEXCHANGETRAINFLAG,
+    ECANDIDATETRAINFLAG,
+    ECANDIDATESEATLIMIT,
+    EYPINFONEW,
+    EDWFLAG = 46,
+    ESTOPCHECKTIME = 48,
+    ECOUNTRYFLAG,
+    ELOCALARRIVETIME,
+    ELOCALSTARTTIME,
+    EBEDLEVELINFO = 53,
+    ESEATDISCOUNTINFO,
+    ESALETIME,
 };
 
 enum SHOWTRAINTYPE {
@@ -103,13 +130,38 @@ enum SHOWTRAINTYPE {
     EOTRAIN
 };
 
+enum RUNSTATUSE {
+    EINIT,
+    EIDLE,
+    EGRABTICKET,
+    ESUBMITORDER,
+    ESUBMITORDERSUCCESS,
+    EGRABCANDIDATETICKET,
+    ESUBMITCANDIDATE,
+    EWAITDIFFDATEDATA,
+    EGETDIFFDATEDATAFAILED,
+    ESUBMITCANDIDATESUCCESS
+};
+
+enum GRABTICKETMODEE {
+    ESHORTINTERVAL,
+    ELONGINTERVAL,
+    ESHORTANDLONG,
+    ERANDOM,
+    EFIXEDTIME,
+    ECUSTOM
+};
+
 struct UserConfig {
     QString staFromName;
     QString staToName;
     QString staFromCode;
     QString staToCode;
     QString tourDate;
+    bool showTicketPrice;
 };
+
+#define MAX_ALPHA_NUM 26
 
 struct PassengerInfo {
     inline bool operator == (const struct PassengerInfo &info) const {
@@ -117,6 +169,7 @@ struct PassengerInfo {
             return true;
         return false;
     }
+    QString allEncStr;
     QString passName;
     QString code;
     QString passIdTypeName;
@@ -129,61 +182,150 @@ struct PassengerInfo {
     QString indexId;
 };
 
-struct UserDetailInfo {
+struct UserLoginInfo {
     QString account;
     QString passwd;
     QString userName;
-    QVector<struct PassengerInfo> passenger;
 };
 
-struct UserSetting {
-    bool showTrain[8];
-};
-
-struct TrainInfo {
-    QString securityStr;
+struct SubmitTicketInfo {
+    QString trainCode;
     QString trainNo;
+    QString secretStr;
+    QString ypDetailInfo;
+    QString date;
+    QString fromStationName;
+    QString fromStationCode;
+    QString toStationName;
+    QString toStationCode;
+    QVector<QChar> submitSeatType;
+    bool isAsync;
+    bool submitSuccess;
+    QString passengerTicketInfo;
+    QString oldPassengerTicketInfo;
+    QString repeatSubmitToken;
+    QString leftTicketStr;
+    QString purposeCodes;
+    QString trainLocation;
+    QString keyCheckIsChange;
+};
+
+struct SeatTypePrioSetting {
+    bool strictSeatTypePrio;
+    bool sufficientSeatTypePrio;
+    bool priceLowSeatTypePrio;
+    bool priceHighSeatTypePrio;
+    bool priceLowSeatTypePrioWhensufficient;
+};
+
+struct TimeRange {
+    int beginHour;
+    int beginMinute;
+    int endHour;
+    int endMinute;
+};
+
+struct TrainPrioSetting {
+    bool strictTrainPrio;
+    bool strictStartTimePrio;
+    bool sufficientTicketPrio;
+    bool travelTimeShortPrio;
+    bool preferGPrio;
+    bool preferDPrio;
+    bool preferTimeRangePrio;
+    struct TimeRange timeRange;
+};
+
+struct TicketSetting {
+    bool partialSubmit;
+};
+
+struct CandidateSetting {
+    QString secretList;
+    int selectedEndCandidateMinutes;
+    int endCandidateMinutes;
+    bool isCandidate;
+    bool prioCandidate;
+    bool onlyCandidate;
+    bool acceptNoSeat;
+    bool acceptNewTrain;
+    bool extraCandidateDateEn;
+    bool extraCandidateDate2En;
+    QString extraCandidateDate;
+    QString extraCandidateDate2;
+    int extraCandidateStartHour;
+    int extraCandidateEndHour;
+};
+
+struct EmailNofity {
+    bool notifyEmailEnable;
+    QString senderEmailAddress;
+    QString authCode;
+    QVector<QString> receiverEmailAddress;
+    QString emailServer;
+    quint16 emailPort;
+    bool enableSsl;
+    bool keepAuthCode;
+    bool advanceMode;
+};
+
+struct NotifySetting {
+    struct EmailNofity emailNotify;
 };
 
 struct GrabTicketSetting {
-    QVector<struct PassengerInfo> selectedPassenger;
+    QVector<struct PassengerInfo> selectedPassenger;  //  选中的旅客信息
+    QVector<struct PassengerInfo> selectedDjPassenger;  // 选中的受让人旅客信息
     QVector<QString> trainNo;
-    QVector<enum ESEATTYPEENUM> seatType;
+    QVector<QChar> seatTypeCode;
+    struct SeatTypePrioSetting seatTypePrio;
+    struct TrainPrioSetting trainPrio;
+    struct TicketSetting ticketSetting;
+    bool autoFrozenTrain;
+    int frozenSeconds;
+    int grabTicketDate;
+    int grabTicketHour;
+    int grabTicketMinute;
+    int grabTicketSecond;
+    enum GRABTICKETMODEE grabMode;
+    int grabIntervalSeconds;
+};
+
+struct GeneralSetting {
+    bool autoSyncServerTime;
 };
 
 class UserData
 {
 public:
-    static UserData *instance();
     ~UserData();
-    void proccessStationNameTxt(const QByteArray &date);
-    int readStationFile(const QString &file);
-    int writeStationFile(const QByteArray &data);
-    void setStationInfo(const QString &data);
+    void setStationCode(const QByteArray &staName, const QByteArray &staCode);
+
+    static inline UserData *instance()
+    {
+        static UserData ud;
+        return &ud;
+    }
 
     inline struct UserConfig &getUserConfig()
     {
         return userConfig;
     }
-    inline struct UserDetailInfo &getUserDetailInfo()
+    inline struct UserLoginInfo &getUserLoginInfo()
     {
-        return detailInfo;
+        return loginInfo;
     }
-    inline QVector<struct TrainInfo> &getTrainInfo()
+    inline void setUserLoginName(QString name)
     {
-        return trainInfo;
+        loginInfo.userName = name;
     }
-    inline struct UserSetting &getUserSetting()
+    inline void setUserLoginPaswd(QString passwd)
     {
-        return setting;
+        loginInfo.passwd = passwd;
     }
     inline struct GrabTicketSetting &getGrabTicketSetting()
     {
         return grabSetting;
-    }
-    inline QMap<QString, QStringList> *getStaMap()
-    {
-        return staMap;
     }
     inline QHash<QString, QString> *getStaCode()
     {
@@ -205,43 +347,54 @@ public:
     {
         uamtk = tk;
     }
-    int getTableViewIdx()
-    {
-        return tableViewIdx;
-    }
-    void setTableViewIdx(int idx)
-    {
-        tableViewIdx = idx;
-    }
     QString seatTypeToDesc(int idx);
     enum ESEATTYPEENUM SeatDescToType(QString desc);
+
+    struct PassengerInfo setPassengerInfo(QVariantMap &map);
+    bool whatsSelect(bool onlyNormal);
+    const QString getpassengerTickets();
+    bool isTimeInRange(int hour, int minute);
 
     bool readConfigFile();
     bool readConfig();
     bool writeConfigFile();
     bool writeConfig();
+    void setRunStatus(enum RUNSTATUSE status) {
+        lastRunStatus = runStatus;
+        runStatus = status;
+    }
+    void recoverRunStatus() {
+        runStatus = lastRunStatus;
+    }
 
     QString errorString() const;
 private:
     explicit UserData();
     UserData(const UserData &) Q_DECL_EQ_DELETE;
     UserData &operator=(const UserData &rhs) Q_DECL_EQ_DELETE;
-private:
-    QMap<QString, QStringList> *staMap;
+public:
     QHash<QString, QString> *staCode;
     struct UserConfig userConfig;
-    struct UserDetailInfo detailInfo;
-    struct UserSetting setting;
+    struct UserLoginInfo loginInfo;
+
     struct GrabTicketSetting grabSetting;
-    QVector<struct TrainInfo> trainInfo;
-    QList<QString> wantedTrain;
-    int tableViewIdx;
+    struct GeneralSetting generalSetting;
+    struct SubmitTicketInfo submitTicketInfo;
+    struct CandidateSetting candidateSetting;
+    struct NotifySetting notifySetting;
+    QVector<struct PassengerInfo> passenger;  // 旅客信息
+    QVector<struct PassengerInfo> djPassenger;  //  受让人旅客信息
     QString apptk;
     QString uamtk;
+    enum RUNSTATUSE runStatus;
+    enum RUNSTATUSE lastRunStatus;
+    enum RUNSTATUSE candidateRunStatus;
 
     void readXBEL();
     QXmlStreamReader rxml;
     QXmlStreamWriter wxml;
 };
+
+QString seatTypeSubmtiCodeTransToDesc(QChar seatType);
 
 #endif // USERDATA_H

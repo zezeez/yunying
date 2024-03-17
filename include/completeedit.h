@@ -10,62 +10,24 @@
 #include <QLabel>
 #include <QPixmap>
 
+#define MAX_ALPHA_NUM 26
+
 class InputCompleter : public QCompleter
 {
     Q_OBJECT
 
 public:
-    inline InputCompleter(const QMap<QString, QStringList> &words, QObject *parent) :
-            QCompleter(parent), m_list(words), m_model(), isAppend(true)
-    {
-        setModel(&m_model);
-    }
+    InputCompleter(QObject *parent = nullptr);
+    InputCompleter &operator=(const InputCompleter &other);
+    void addStationName(const QByteArray &staName, const QByteArray &staFullPinYin);
+    void addStationFullPinYin(const QByteArray &staName,
+                                              const QByteArray &staFullPinYin);
+    void addStationSimplePinYin(const QByteArray &staName,
+                                                const QByteArray &staSimplePinYin,
+                                                const QByteArray &staFullPinYin);
 
-    void update(QString word)
-    {
-        // Do any filtering you like.
-        QMap<QString, QStringList>::const_iterator it;
-        QMap<QString, QStringList> previous, current;
-        QStringList result;
-
-        int count = word.length() - m_word.length();
-        if (!keyWordStack.isEmpty()) {
-            if (count > 0) {
-                isAppend = true;
-                previous = keyWordStack.top();
-                for (it = previous.cbegin(); it != previous.cend(); it++) {
-                    if (it.key().startsWith(word)) {
-                        result << it.value().at(1) + " " + it.value().at(3);
-                        current.insertMulti(it.key(), it.value());
-                    }
-                }
-                keyWordStack.push(current);
-            } else {
-                if (isAppend)
-                    count--;
-                isAppend = false;
-                while (count++ < 0) {
-                    if (!keyWordStack.isEmpty())
-                        current = keyWordStack.pop();
-                }
-                for (it = current.cbegin(); it != current.cend(); it++) {
-                    result << it.value().at(1) + " " + it.value().at(3);
-                }
-            }
-        } else {
-            for (it = m_list.cbegin(); it != m_list.cend(); it++) {
-                if (it.key().startsWith(word)) {
-                    result << it.value().at(1) + " " + it.value().at(3);
-                    current.insertMulti(it.key(), it.value());
-                }
-            }
-            keyWordStack.push(current);
-        }
-
-        m_model.setStringList(result);
-        m_word = word;
-        complete();
-    }
+    void update(const QByteArray &word);
+    void setStationData(const QByteArray &nameText);
 
     inline QString word()
     {
@@ -73,10 +35,21 @@ public:
     }
 
 private:
-    QMap<QString, QStringList> m_list;
-    QStack<QMap<QString, QStringList>> keyWordStack;
+    // 一级索引，长度256
+    QVector<int> stationNameIndexLevel1;
+    // 二级索引，长度256
+    QVector<int> stationNameIndexLevel2;
+    // 数据
+    QVector<QVector<QPair<QByteArray, QString>>> stationNameData;
+    QVector<int> stationFullPinYinIndexLevel1;
+    QVector<int> stationFullPinYinIndexLevel2;
+    QVector<QVector<QPair<QByteArray, QString>>> stationFullPinYinData;
+    QVector<int> stationSimplePinYinIndexLevel1;
+    QVector<int> stationSimplePinYinIndexLevel2;
+    QVector<QVector<QPair<QByteArray, QString>>> stationSimplePinYinData;
+    QStack<QVector<QPair<QByteArray, QString>>> keyWordStack;
     QStringListModel m_model;
-    QString m_word;
+    QByteArray m_word;
     bool isAppend;
 };
 
@@ -127,6 +100,19 @@ protected:
 private:
     QVector<mapArea> area;
     QLabel picLabel[9];
+};
+
+class ClickLabel : public QLabel
+{
+    Q_OBJECT
+public:
+    ClickLabel(QWidget *parent = nullptr);
+    ~ClickLabel();
+
+protected:
+    void mousePressEvent(QMouseEvent *ev) override;
+Q_SIGNALS:
+    void clicked(int x, int y);
 };
 
 #endif // COMPLETEEDIT_H
