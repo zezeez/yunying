@@ -15,31 +15,20 @@
 #include <QCheckBox>
 #include <QRect>
 #include <QSettings>
+#include <QMovie>
 
 LoginDialog::LoginDialog(QDialog *parent) :
     QDialog(parent)
 {
-    dialog = new QDialog;
 }
 
 LoginDialog::~LoginDialog()
 {
-    delete dialog;
-}
-
-void LoginDialog::show()
-{
-    dialog->show();
-}
-
-void LoginDialog::hide()
-{
-    dialog->hide();
 }
 
 void LoginDialog::setUp()
 {
-    QTabWidget *tabWidget = new QTabWidget;
+    tabWidget = new QTabWidget;
     QSettings setting;
     userNameLe = new QLineEdit;
     passwdLe = new QLineEdit;
@@ -89,6 +78,7 @@ void LoginDialog::setUp()
     hLayout = new QHBoxLayout;
     smsLe = new QLineEdit;
     idCardNumLe = new QLineEdit;
+    connect(idCardNumLe, &QLineEdit::textChanged, this, &LoginDialog::idCardNumLeTextChanged);
     idCardNumLe->hide();
     smsPb = new QPushButton;
     smsPb->setText(tr("获取验证码"));
@@ -174,14 +164,15 @@ void LoginDialog::setUp()
 
     hLayout = new QHBoxLayout;
     hLayout->addWidget(tabWidget);
-    dialog->setLayout(hLayout);
-    dialog->resize(QSize(300, 300));
+    setLayout(hLayout);
+    resize(QSize(300, 300));
     connect(tabWidget, &QTabWidget::currentChanged, this, &LoginDialog::tabIndexChanged);
     connect(qrCodeLabel, &ClickLabel::clicked, this, &LoginDialog::qrCodeLabelClicked);
     //NetHelper::instance()->initLoginCookie();
     //NetHelper::instance()->getLoginConf();
 
     UserData::instance()->runStatus = EIDLE;
+    qrCodeRefreshTimer = nullptr;
     //show();
 }
 
@@ -201,36 +192,28 @@ void LoginDialog::qrCodeLabelClicked()
 
 void LoginDialog::selectQrCodeTab()
 {
-    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(dialog->layout());
-    QTabWidget *tab = static_cast<QTabWidget *>(hLayout->itemAt(0)->widget());
-    tab->setCurrentIndex(1);
+    tabWidget->setCurrentIndex(1);
 }
 
 void LoginDialog::hideQrCodeTab()
 {
-    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(dialog->layout());
-    QTabWidget *tab = static_cast<QTabWidget *>(hLayout->itemAt(0)->widget());
-    if (tab->count() == 2) {
-        tab->setCurrentIndex(0);
-        tab->removeTab(1);
+    if (tabWidget->count() == 2) {
+        tabWidget->setCurrentIndex(0);
+        tabWidget->removeTab(1);
     }
 }
 
 void LoginDialog::showQrCodeTab()
 {
-    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(dialog->layout());
-    QTabWidget *tab = static_cast<QTabWidget *>(hLayout->itemAt(0)->widget());
-    if (tab->count() == 1) {
-        tab->addTab(qrCodeWidget, tr("扫码登陆"));
-        tab->setCurrentIndex(1);
+    if (tabWidget->count() == 1) {
+        tabWidget->addTab(qrCodeWidget, tr("扫码登陆"));
+        tabWidget->setCurrentIndex(1);
     }
 }
 
 void LoginDialog::selectPasswordTab()
 {
-    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(dialog->layout());
-    QTabWidget *tab = static_cast<QTabWidget *>(hLayout->itemAt(0)->widget());
-    tab->setCurrentIndex(0);
+    tabWidget->setCurrentIndex(0);
 }
 
 void LoginDialog::idCardNumLeTextChanged(const QString &text)
@@ -244,9 +227,7 @@ void LoginDialog::idCardNumLeTextChanged(const QString &text)
 
 void LoginDialog::showSmsVerification()
 {
-    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(dialog->layout());
-    QTabWidget *tab = static_cast<QTabWidget *>(hLayout->itemAt(0)->widget());
-    QWidget *widget = tab->widget(0);
+    QWidget *widget = tabWidget->widget(0);
     QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
 
     loginPb->setText(tr("提交"));
@@ -254,7 +235,7 @@ void LoginDialog::showSmsVerification()
     connect(loginPb, &QPushButton::clicked, this, &LoginDialog::onSmsVerificationLogin);
     idCardNumLe->setPlaceholderText(tr("请输入登陆账号绑定的证件号后4位"));
     smsLe->setPlaceholderText(tr("短信验证码"));
-    connect(idCardNumLe, &QLineEdit::textChanged, this, &LoginDialog::idCardNumLeTextChanged);
+
     idCardNumLe->show();
     smsLe->show();
     smsPb->setDisabled(true);
@@ -263,11 +244,20 @@ void LoginDialog::showSmsVerification()
     vLayout->setAlignment(Qt::AlignHCenter);
 }
 
+void LoginDialog::hideSmsVerification()
+{
+    loginPb->setText(tr("登陆"));
+    disconnect(loginPb, &QPushButton::clicked, nullptr, nullptr);
+    connect(loginPb, &QPushButton::clicked, this, &LoginDialog::onLogin);
+    idCardNumLe->hide();
+    smsLe->hide();
+    smsPb->hide();
+    selectPasswordTab();
+}
+
 void LoginDialog::hideUserNamePasswd()
 {
-    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(dialog->layout());
-    QTabWidget *tab = static_cast<QTabWidget *>(hLayout->itemAt(0)->widget());
-    QWidget *widget = tab->widget(0);
+    QWidget *widget = tabWidget->widget(0);
     QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
     QFormLayout *fLayout = static_cast<QFormLayout *>(vLayout->itemAt(0));
 
@@ -280,6 +270,22 @@ void LoginDialog::hideUserNamePasswd()
     label->hide();
     label = static_cast<QLabel *>(fLayout->itemAt(3)->widget());
     label->hide();
+}
+
+void LoginDialog::showUserNamePasswd()
+{
+    QWidget *widget = tabWidget->widget(0);
+    QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
+    QFormLayout *fLayout = static_cast<QFormLayout *>(vLayout->itemAt(0));
+    logoLabel->show();
+    keepPasswdCB->show();
+    remindLabel1->show();
+    userNameLe->show();
+    passwdLe->show();
+    QLabel *label = static_cast<QLabel *>(fLayout->itemAt(1)->widget());
+    label->show();
+    label = static_cast<QLabel *>(fLayout->itemAt(3)->widget());
+    label->show();
 }
 
 void LoginDialog::onLogin()
@@ -339,4 +345,105 @@ bool LoginDialog::verifyInput()
     ud->setUserLoginName(userName);
     ud->setUserLoginPaswd(passwd);
     return true;
+}
+
+void LoginDialog::reset()
+{
+    if (tabWidget->currentIndex() == 0) {
+        hideSmsVerification();
+        showUserNamePasswd();
+    } else {
+        NetHelper::instance()->createQrCode();
+    }
+}
+
+void LoginDialog::showLoadingQrCode()
+{
+    QWidget *widget = tabWidget->widget(1);
+    QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
+    QLabel *label = static_cast<QLabel *>(vLayout->itemAt(0)->widget());
+    QLabel *tipsLabel = static_cast<QLabel *>(vLayout->itemAt(1)->widget());
+    QMovie *movie = label->movie();
+    if (!movie) {
+        movie = new QMovie(_(":/icon/images/loading.gif"));
+        label->setMovie(movie);
+        movie->start();
+    } else {
+        movie->stop();
+        movie->start();
+    }
+    tipsLabel->setText(QStringLiteral("加载中..."));
+}
+
+void LoginDialog::showLoadedQrCode(const QVariantMap &varMap)
+{
+    QWidget *widget = tabWidget->widget(1);
+    QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
+    ClickLabel *label = static_cast<ClickLabel *>(vLayout->itemAt(0)->widget());
+    QLabel *tipsLabel = static_cast<QLabel *>(vLayout->itemAt(1)->widget());
+    QMovie *movie = label->movie();
+    if (movie) {
+        label->setMovie(nullptr);
+        movie->stop();
+        delete movie;
+    }
+    QPixmap pixMap;
+    QByteArray base64Data = varMap[_("image")].toByteArray();
+    QByteArray image = QByteArray::fromBase64(base64Data);
+    pixMap.loadFromData(image);
+    label->setPixmap(pixMap);
+    tipsLabel->setText(tr("打开12306手机APP扫描二维码"));
+    QString uuid = varMap[_("uuid")].toString();
+    if (!qrCodeRefreshTimer) {
+        qrCodeRefreshTimer = new QTimer;
+        connect(qrCodeRefreshTimer, &QTimer::timeout, this, [uuid]() {
+            NetHelper::instance()->checkQrCode(uuid);
+        });
+        qrCodeRefreshTimer->setInterval(1500);
+    }
+
+    qrCodeRefreshTimer->start();
+}
+
+void LoginDialog::updateQrCodeStatus(int status)
+{
+    QPixmap pixMap;
+
+    // 0：未识别、
+    // 1：已识别，暂未授权（未点击授权或不授权）、
+    // 2：登录成功，（已识别且已授权）、
+    // 3：已失效、
+    // 5系统异常
+    switch (status) {
+    case 0:
+        break;
+    case 1:
+        pixMap.load(QStringLiteral(":/icon/images/login-success.png"));
+        qrCodeLabel->setPixmap(pixMap);
+        tipsLabel->setText(tr("已扫码，请在12306 APP上点击确认"));
+        break;
+    case 2:
+        NetHelper::instance()->loginIndex();
+        NetHelper::instance()->passportUamtk();
+        qrCodeRefreshTimer->stop();
+        break;
+    case 3:
+        pixMap.load(QStringLiteral(":/icon/images/qrcode_invalid.png"));
+        qrCodeLabel->setPixmap(pixMap);
+        tipsLabel->setText(tr("二维码已失效，点击刷新"));
+        qrCodeRefreshTimer->stop();
+        break;
+    case 5:
+        pixMap.load(QStringLiteral(":/icon/images/qrcode_invalid.png"));
+        qrCodeLabel->setPixmap(pixMap);
+        tipsLabel->setText(tr("系统错误，点击刷新"));
+        qrCodeRefreshTimer->stop();
+        break;
+    default:
+        pixMap.load(QStringLiteral(":/icon/images/qrcode_invalid.png"));
+        qrCodeLabel->setPixmap(pixMap);
+        tipsLabel->setText(tr("二维码已失效，点击刷新"));
+        qrCodeRefreshTimer->stop();
+        break;
+    }
 }

@@ -562,7 +562,7 @@ QVector<std::pair<int, int>> Analysis::trainSelectSeatType(int trainNoIdx)
     return seatVec;
 }
 
-std::pair<QString, QString> Analysis::generateSubmitTicketInfo(QVector<std::pair<int, int>> &seatVec, QVector<QChar> &submitSeatType)
+std::pair<QString, QString> Analysis::generateSubmitTicketInfo(QVector<std::pair<int, int>> &seatVec, QVector<QPair<QString, QChar>> &submitSeatType)
 {
     const QStringList &passengerList = w->passengerDialog->getSelectedPassenger();
     QString submitTicketStr, oldPassengerTicketStr;
@@ -589,7 +589,7 @@ std::pair<QString, QString> Analysis::generateSubmitTicketInfo(QVector<std::pair
                 idx++;
                 continue;
             }
-            submitSeatType.append(code);
+            submitSeatType.append(QPair<QString, QChar>(ud->passenger[j].passName, code));
             submitTicketStr.append(QStringLiteral("%1,0,%2,%3,%4,%5,%6,N,%7_").arg(code, PASSENGERADULT,
                                                                                    ud->passenger[j].passName.toUtf8().toPercentEncoding(),
                                                                                    ud->passenger[j].passIdTypeCode,
@@ -612,7 +612,7 @@ std::pair<QString, QString> Analysis::generateSubmitTicketInfo(QVector<std::pair
     return std::pair<QString, QString>(submitTicketStr, oldPassengerTicketStr);
 }
 
-int Analysis::analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QChar> &submitSeatType, const QVariantMap &stationMap)
+int Analysis::analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QPair<QString, QChar>> &submitSeatType, const QVariantMap &stationMap)
 {
     UserData *ud = UserData::instance();
     int trainNoIdx = -1;
@@ -640,32 +640,41 @@ int Analysis::analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QCha
                                    _("检测到已选中的可预订车次，使用规则：行程时间短的车次优先提交"),
                                    _("检测到已选中的可预订车次，使用规则：按列车发车时间顺序提交")
         };
+        QString startStation, endStation;
         w->formatOutput(methodDesc[methodDescIdx]);
+        startStation = stationMap.value(trainInfoVec[trainNoIdx][ESTARTSTATIONTELECODE]).toString();
+        endStation = stationMap.value(trainInfoVec[trainNoIdx][EENDSTATIONTELECODE]).toString();
         w->formatOutput(_("已选中车次%1 始发站：%2, 终点站：%3, 上车站：%4, 下车站：%5, 上车时间：%6, 到站时间：%7, 历时：%8")
                         .arg(trainInfoVec[trainNoIdx][ESTATIONTRAINCODE],
-                            stationMap.value(trainInfoVec[trainNoIdx][ESTARTSTATIONTELECODE]).toString(),
-                            stationMap.value(trainInfoVec[trainNoIdx][EENDSTATIONTELECODE]).toString(),
+                            startStation,
+                            endStation,
                             stationMap.value(trainInfoVec[trainNoIdx][EFROMSTATIONTELECODE]).toString(),
                             stationMap.value(trainInfoVec[trainNoIdx][ETOSTATIONTELECODE]).toString(),
                             trainInfoVec[trainNoIdx][ESTARTTIME],
                             trainInfoVec[trainNoIdx][EARRIVETIME],
                             trainInfoVec[trainNoIdx][ESPENDTIME]));
         QVector<std::pair<int, int>> seatVec = trainSelectSeatType(trainNoIdx);
+        ud->submitTicketInfo.startSTationName = startStation;
+        ud->submitTicketInfo.endStationName = endStation;
+        ud->submitTicketInfo.fromTime = trainInfoVec[trainNoIdx][ESTARTTIME];
+        ud->submitTicketInfo.toTime = trainInfoVec[trainNoIdx][EARRIVETIME];
+        ud->submitTicketInfo.travelTime = trainInfoVec[trainNoIdx][ESPENDTIME];
         ticketStr = generateSubmitTicketInfo(seatVec, submitSeatType);
     }
     return trainNoIdx;
 }
 
-bool Analysis::mayCandidate(const QVariantMap &stationMap)
+bool Analysis::mayCandidate(const QVariantMap &stationMap, const QString &date)
 {
     int ret = -1;
     int i, j;
     int trainInfoVecSize = trainInfoVec.size();
-    QList<QPair<QString, QChar>> candidateSeatType;
     const QList<QString> &selectedSeatTypeList = w->seatTypeDialog->getSelectedSeatType();
     QVector<int> selectSeatType;
     int selectSeatTypeSize = seatTypeTranslate(selectedSeatTypeList, selectSeatType);
     const QSet<QString> &selectedTrainSet = w->trainNoDialog->getSelectedTrainSet();
+    UserData *ud = UserData::instance();
+    struct CandidateDateInfo dInfo;
 
     if (trainTicketInfo.isEmpty()) {
         initTrainTicketInfo();
@@ -684,6 +693,7 @@ bool Analysis::mayCandidate(const QVariantMap &stationMap)
         if (!selectedTrainSet.contains(trainDesc)) {
             continue;
         }
+        struct CandidateTrainInfo tInfo;
         for (j = 0; j < selectSeatTypeSize; j++) {
             // 其他 and 无座
             if (selectSeatType[j] == 2 ||
@@ -699,13 +709,21 @@ bool Analysis::mayCandidate(const QVariantMap &stationMap)
                                                  selectedSeatTypeList[j]));
                         continue;
                     }
-                    candidateSeatType.append(QPair<QString, QChar>(trainList[ESECRETSTR], code));
+                    tInfo.trainCode = trainList[ESTATIONTRAINCODE];
+                    tInfo.secretStr = trainList[ESECRETSTR];
+                    tInfo.seatType.append(code);
+                    if (!ud->candidateInfo.allSeatType.contains(code)) {
+                        ud->candidateInfo.allSeatType.append(code);
+                    }
                 }
             }
         }
+        dInfo.train.append(tInfo);
+        dInfo.date = date;
+        dInfo.hasUpdate = true;
     }
-    if (!candidateSeatType.isEmpty()) {
-        NetHelper::instance()->candidateEntry(candidateSeatType);
+    if (!dInfo.train.isEmpty()) {
+        NetHelper::instance()->candidateEntry(dInfo);
         ret = 0;
     }
     return ret;

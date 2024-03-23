@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <completeedit.h>
+#include <QTabWidget>
 
 class LoginDialog : public QDialog
 {
@@ -13,8 +14,6 @@ class LoginDialog : public QDialog
 public:
     LoginDialog(QDialog *parent = nullptr);
     ~LoginDialog();
-    void show();
-    void hide();
     void setUp();
     void tabIndexChanged(int index);
     void qrCodeLabelClicked();
@@ -24,14 +23,21 @@ public:
     void selectPasswordTab();
     void smsPbClicked();
     void showSmsVerification();
+    void hideSmsVerification();
     void hideUserNamePasswd();
+    void showUserNamePasswd();
     void onLogin();
     void onSmsVerificationLogin();
     bool verifyInput();
+    void reset();
+    void showLoadingQrCode();
+    void showLoadedQrCode(const QVariantMap &varMap);
+    void updateQrCodeStatus(int status);
+
 public Q_SLOTS:
     void idCardNumLeTextChanged(const QString &text);
 public:
-    QDialog *dialog;
+    QTabWidget *tabWidget;
     QWidget *qrCodeWidget;
     QLabel *logoLabel;
     QLineEdit *userNameLe;
@@ -45,6 +51,7 @@ public:
     QLabel *remindLabel1;
     QLabel *remindLabel2;
     QPushButton *loginPb;
+    QTimer *qrCodeRefreshTimer;
 };
 
 #endif // LOGINDIALOG_H

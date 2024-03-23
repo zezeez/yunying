@@ -33,6 +33,7 @@
 #include <QRandomGenerator>
 #include <QScrollArea>
 #include <QSettings>
+#include <QAudioOutput>
 #include "icondelegate.h"
 #include "12306.h"
 
@@ -54,6 +55,12 @@ MainWindow::MainWindow(QWidget *parent) :
     hLayout = new QHBoxLayout;
     //hLayout->setMargin(10);
     hLayout->setSpacing(20);
+
+    player = nullptr;
+    stopMusicTimer = new QTimer;
+    connect(stopMusicTimer, &QTimer::timeout, this, [=] () {
+        startOrStopPlayMusic();
+    });
 
     hLayout->addWidget(label = new QLabel(tr("出发站: ")));
     label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -91,6 +98,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(switchTicketShowTypePb, &QPushButton::clicked, this, &MainWindow::switchTicketShowType);
     hLayout->addWidget(pb = new QPushButton);
     pb->setText(tr("设置"));
+    hLayout->addWidget(playMusicPb = new QPushButton);
+    playMusicPb->setText(tr("试听音乐"));
+    connect(playMusicPb, &QPushButton::clicked, this, &MainWindow::startOrStopPlayMusic);
+
     settingDialog = new SettingDialog(this);
     settingDialog->setUp();
     connect(pb, &QPushButton::clicked, settingDialog, &SettingDialog::show);
@@ -120,10 +131,32 @@ MainWindow::MainWindow(QWidget *parent) :
 
     doGrabTicketTimer = new QTimer;
     connect(doGrabTicketTimer, &QTimer::timeout, this, &MainWindow::doGrabTicket);
+    fixedTimeGrabTimer = new QTimer;
+    connect(fixedTimeGrabTimer, &QTimer::timeout, this, [this]() {
+        fixedTimeGrabTimer->stop();
+        enterGrabMode();
+    });
     updateProgressBarTimer = new QTimer;
     connect(updateProgressBarTimer, &QTimer::timeout, this, [=] {
         int incrVal = grabTicketInterval >> 3;
         nextRequestProgress->setValue(nextRequestProgress->value() + incrVal);
+    });
+
+    player = new QMediaPlayer;
+    QAudioOutput *output = new QAudioOutput;
+    player->setAudioOutput(output);
+    player->setSource(QUrl::fromLocalFile(UserData::instance()->generalSetting.musicPath));
+    player->setLoops(QMediaPlayer::Infinite);
+    output->setVolume(60);
+
+    statChart = new BarChartView(this);
+    delayChart = new LineChartView(this);
+
+    skipMaintenanceTimer = new QTimer;
+    connect(skipMaintenanceTimer, &QTimer::timeout, this, [this] () {
+        startOrStopGrabTicket();
+        skipMaintenanceTimer->setInterval(60 * 60 * 4 * 1000);
+        skipMaintenanceTimer->start();
     });
 
     createDockWidget();
@@ -216,24 +249,6 @@ void MainWindow::createUiComponent()
 
     menu = menuBar()->addMenu(tr("&文件"));
 
-    action = new QAction(tr("&ChangTrain"), this);
-    action->setShortcut(tr("Ctrl+T"));
-    action->setStatusTip(tr("Change train"));
-    connect(action, &QAction::triggered, this, &MainWindow::changeTrain);
-    menu->addAction(action);
-
-    action = new QAction(tr("&ChangeStation"), this);
-    action->setShortcut(tr("Ctrl+E"));
-    action->setStatusTip(tr("Change station"));
-    connect(action, &QAction::triggered, this, &MainWindow::changeStation);
-    menu->addAction(action);
-
-    action = new QAction(tr("&CancelTicket"), this);
-    action->setShortcut(tr("Ctrl+C"));
-    action->setStatusTip(tr("Cancel ticket"));
-    connect(action, &QAction::triggered, this, &MainWindow::cancelTicket);
-    menu->addAction(action);
-
     action = new QAction(tr("&退出..."), this);
     action->setShortcut(tr("Ctrl+Q"));
     action->setStatusTip(tr("退出程序"));
@@ -254,6 +269,18 @@ void MainWindow::createUiComponent()
     connect(action, &QAction::triggered, settingDialog, &SettingDialog::show);
     menu->addAction(action);
 
+    menu = menuBar()->addMenu(tr("&统计"));
+
+    action = new QAction(tr("异常..."), this);
+    action->setStatusTip(tr("显示异常统计图"));
+    connect(action, &QAction::triggered, statChart, &BarChartView::show);
+    menu->addAction(action);
+
+    action = new QAction(tr("时延..."), this);
+    action->setStatusTip(tr("显示时延统计图"));
+    connect(action, &QAction::triggered, delayChart, &LineChartView::show);
+    menu->addAction(action);
+
     menu = menuBar()->addMenu(tr("&帮助"));
 
     action = new QAction(tr("关于..."), this);
@@ -261,14 +288,27 @@ void MainWindow::createUiComponent()
     action->setStatusTip(tr("显示版本信息"));
     connect(action, &QAction::triggered, this, &MainWindow::about);
     menu->addAction(action);
-
-    action = new QAction(tr("关于&Qt..."), this);
-    action->setShortcut(tr("F2"));
+    action = new QAction(tr("关于Qt..."), this);
     action->setStatusTip(tr("显示Qt版本信息"));
     connect(action, &QAction::triggered, qApp, &QApplication::aboutQt);
     menu->addAction(action);
 
     initStatusBars();
+    // Test
+    /*QTimer *timer = new QTimer;
+    connect(timer, &QTimer::timeout, this, [=] () {
+        std::uniform_int<int> dist;
+        int d;
+        QVector<int> v;
+        for (int i = 0; i < 6; i++) {
+            d = dist(*QRandomGenerator::global());
+            v << d;
+        }
+        statChart->update(v);
+        delayChart->update(d * 20);
+    });
+    timer->setInterval(5000);
+    timer->start();*/
 }
 
 void MainWindow::userStartStationChanged()
@@ -352,10 +392,26 @@ void MainWindow::addTrainToSelected()
     QPushButton *button = static_cast<QPushButton *>(sender());
     //QStandardItemModel *itemModel = static_cast<QStandardItemModel *>(tableView->model());
     //QStandardItem *item = itemModel->item(idx);
-    //NetHelper::instance()->checkUser();
     trainNoDialog->addSelectedTrain(_("%1 (%2 %3").arg(button->property("trainCode").toString(),
                                                     button->property("fromStationName").toString(),
                                                     button->property("toStationName").toString()));
+}
+
+bool MainWindow::canAddNewTrain(const QString &trainTime)
+{
+    UserData *ud = UserData::instance();
+    if (!ud->grabSetting.acceptNewTrain) {
+        return false;
+    }
+    QStringList hourMinStr = trainTime.split(':');
+    if (!hourMinStr.isEmpty()) {
+        int hour = hourMinStr[0].toInt();
+        if (hour >= ud->grabSetting.newTrainStartHour &&
+            hour <= ud->grabSetting.newTrainEndHour) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void MainWindow::processQueryTicketReply(QVariantMap &data)
@@ -368,6 +424,10 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
     QString tourDate = uc.tourDate;
     QVariantMap stationMap = data[_("map")].toMap();
 
+    // 已经下单成功了，不处理后续返回的查询结果
+    if (ud->lastRunSuccess) {
+        return;
+    }
     if (stationMap.isEmpty()) {
         //formatOutput(_("查询失败，返回站点信息为空"));
         formatOutput(_("%1->%2(%3) 共查询到 0 趟车次, 可预订 0 趟车次")
@@ -418,12 +478,32 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             if (trainInfo.size() < ESEATTYPES) {
                 continue;
             }
+            if (trainInfo[ESECRETSTR].isEmpty()) {
+                continue;
+            }
             if (trainInfo[ESTATIONTRAINCODE].isEmpty()) {
                 continue;
             }
             if (trainInfo[ECANWEBBUY] == _("Y")) {
                 if (ud->runStatus == EGRABTICKET) {
                     availableTrain.push_back(trainInfo);
+                    // 增开列车
+                    QString trainDesc = trainInfo[ESTATIONTRAINCODE] + trainInfo[EFROMSTATIONTELECODE] + trainInfo[ETOSTATIONTELECODE];
+                    if (!trainNoDialog->getAllTrainSet().contains(trainDesc)) {
+                        if (canAddNewTrain(trainInfo[ESTARTTIME])) {
+                            // 选了接受增开列车，自动加到已选列表
+                            trainNoDialog->addTrain(trainDesc,
+                                                    _("%1 (%2 %3 %4-%5 %6)").arg(trainInfo[ESTATIONTRAINCODE],
+                                                                                 fromStationName,
+                                                                                 toStationName,
+                                                                                 trainInfo[ESTARTTIME],
+                                                                                 trainInfo[EARRIVETIME],
+                                                                                 trainInfo[ESPENDTIME]));
+                            trainNoDialog->addSelectedTrain(_("%1 (%2 %3").arg(trainInfo[ESTATIONTRAINCODE],
+                                                                               stationMap.value(trainInfo[EFROMSTATIONTELECODE]).toString(),
+                                                                               stationMap.value(trainInfo[ETOSTATIONTELECODE]).toString()));
+                        }
+                    }
                 }
                 can_booking++;
             }
@@ -438,15 +518,15 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 // 结束任务
                 startOrStopGrabTicket();
             }
-            candidateAnalysis.mayCandidate(stationMap);
+            candidateAnalysis.mayCandidate(stationMap, ud->getUserConfig().tourDate);
         } else {
             if (ud->candidateSetting.isCandidate && ud->candidateSetting.prioCandidate) {
-                candidateAnalysis.mayCandidate(stationMap);
+                candidateAnalysis.mayCandidate(stationMap, ud->getUserConfig().tourDate);
             }
             if (can_booking) {
                 Analysis ana(availableTrain);
                 std::pair<QString, QString> ticketStr;
-                QVector<QChar> submitSeatType;
+                QVector<QPair<QString, QChar>> submitSeatType;
                 int trainNoIdx = ana.analysisTrain(ticketStr, submitSeatType, stationMap);
                 if (trainNoIdx != -1) {
                     ud->submitTicketInfo.trainCode = availableTrain[trainNoIdx][ESTATIONTRAINCODE];
@@ -469,7 +549,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 }
             }
             if (ud->candidateSetting.isCandidate && !ud->candidateSetting.prioCandidate) {
-                candidateAnalysis.mayCandidate(stationMap);
+                candidateAnalysis.mayCandidate(stationMap, ud->getUserConfig().tourDate);
             }
         }
     }
@@ -534,8 +614,6 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         //hlayout->addWidget(label);
         //model->setItem(i, ETRAINNUM, );
         //tableView->setIndexWidget(model->index(i, 0), trainWidget);
-
-        ud->submitTicketInfo.secretStr = trainInfo[ESECRETSTR];
 
         curText = trainInfo[ESTATIONTRAINCODE].isEmpty() ?
                       "--" : trainInfo[ESTATIONTRAINCODE];
@@ -950,70 +1028,207 @@ void MainWindow::processStopStationReply(QVariantMap &data)
                 j++;
             }
         }
+        QDialog m;
+        QLabel l(disp);
+        QVBoxLayout vlayout;
         if (tw->rowCount()) {
-            QDialog m;
-            QLabel l(disp);
-            //scrollArea.viewport()->setBackgroundRole(QPalette::);
-            QVBoxLayout vlayout;
-            tw->resizeColumnsToContents();
+            tw->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+            //tw->resizeColumnsToContents();
             vlayout.addWidget(&l);
             vlayout.addWidget(tw);
             m.setLayout(&vlayout);
             m.setWindowTitle(_("停靠站信息"));
             m.resize(350, 250);
             m.exec();
-            delete tw;
         }
+        delete tw;
+    }
+}
+
+void MainWindow::enterGrabMode()
+{
+    UserData *ud = UserData::instance();
+    UserConfig &uc = ud->getUserConfig();
+    ud->setRunStatus(EGRABTICKET);
+    ud->candidateRunStatus = EGRABCANDIDATETICKET;
+    grabTicketPb->setText(tr("停止"));
+    fromStationLe->setEnabled(false);
+    toStationLe->setEnabled(false);
+    swapStationPb->setEnabled(false);
+    tourDateDe->setEnabled(false);
+
+    doGrabTicketTimer->setInterval(1000);
+    doGrabTicketTimer->start();
+    updateProgressBarTimer->start(100);
+    grabTicketInterval = 1000;
+    if (uc.showTicketPrice) {
+        switchTicketShowType();
+    }
+    queryTicketPb->setEnabled(false);
+    switchTicketShowTypePb->setEnabled(false);
+    passengerDialog->enterGrabTicketMode();
+    seatTypeDialog->enterGrabTicketMode();
+    trainNoDialog->enterGrabTicketMode();
+    tableView->setContextMenuPolicy(Qt::NoContextMenu);
+
+    QDateTime cur = QDateTime::currentDateTime();
+    QDateTime end;
+    if (cur.time().hour() != 0) {
+        if (cur.date().dayOfWeek() != 2) {
+            end = cur.addDays(1);
+            end.setTime(QTime(1, 0, 0));
+        } else {
+            end.setTime(QTime(23, 30, 0));
+        }
+    } else {
+        end = cur;
+        end.setTime(QTime(1, 0, 0));
+    }
+
+    qint64 interval = cur.secsTo(end);
+    if (interval > 0) {
+        skipMaintenanceTimer->setInterval(interval * 1000);
+        skipMaintenanceTimer->start();
+    }
+}
+
+void MainWindow::exitGrabMode()
+{
+    UserData *ud = UserData::instance();
+    ud->instance()->setRunStatus(EIDLE);
+    ud->instance()->candidateRunStatus = EIDLE;
+    grabTicketPb->setText(tr("开始"));
+    fromStationLe->setEnabled(true);
+    toStationLe->setEnabled(true);
+    swapStationPb->setEnabled(true);
+    tourDateDe->setEnabled(true);
+
+    doGrabTicketTimer->stop();
+    updateProgressBarTimer->stop();
+    grabTicketInterval = 0;
+
+    queryTicketPb->setEnabled(true);
+    switchTicketShowTypePb->setEnabled(true);
+    passengerDialog->exitGrabTicketMode();
+    seatTypeDialog->exitGrabTicketMode();
+    trainNoDialog->exitGrabTicketMode();
+    tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    if (skipMaintenanceTimer->isActive()) {
+        skipMaintenanceTimer->stop();
     }
 }
 
 void MainWindow::prepareGrabTicket(bool status)
 {
     UserData *ud = UserData::instance();
-    UserConfig &uc = ud->getUserConfig();
 
     if (status) {
-        UserData::instance()->setRunStatus(EGRABTICKET);
-        UserData::instance()->candidateRunStatus = EGRABCANDIDATETICKET;
-        grabTicketPb->setText(tr("停止"));
-        fromStationLe->setEnabled(false);
-        toStationLe->setEnabled(false);
-        swapStationPb->setEnabled(false);
-        tourDateDe->setEnabled(false);
-
-        doGrabTicketTimer->setInterval(1000);
-        doGrabTicketTimer->start();
-        updateProgressBarTimer->start(100);
-        grabTicketInterval = 1000;
-        if (uc.showTicketPrice) {
-            switchTicketShowType();
+        if (ud->grabSetting.fixedTimeGrab) {
+            QDateTime now = QDateTime::currentDateTime();
+            QDateTime end(now);
+            QStringList dateList = ud->grabSetting.grabTicketDate.split('-');
+            if (dateList.size() > 1) {
+                end.setDate(QDate(now.date().year(), dateList[0].toInt(), dateList[1].toInt()));
+            }
+            end.setTime(QTime(ud->grabSetting.grabTicketHour,
+                              ud->grabSetting.grabTicketMinute,
+                              ud->grabSetting.grabTicketSecond));
+            qint64 secs = now.secsTo(end);
+            if (secs > 0) {
+                fixedTimeGrabTimer->setInterval(secs * 1000);
+                fixedTimeGrabTimer->start();
+                formatOutput(_("定时抢票模式，已设置定时抢票时间为%1").arg(end.toString(_("yyyy-MM-dd hh:mm:ss"))));
+                if (settingDialog->setQueryTicketMode(EFIXEDTIME)) {
+                    formatOutput(_("刷票模式已自动切换为定时抢票模式"));
+                }
+                grabTicketPb->setText(tr("停止"));
+                return;
+            }
         }
-        queryTicketPb->setEnabled(false);
-        switchTicketShowTypePb->setEnabled(false);
-        passengerDialog->enterGrabTicketMode();
-        seatTypeDialog->enterGrabTicketMode();
-        trainNoDialog->enterGrabTicketMode();
-        tableView->setContextMenuPolicy(Qt::NoContextMenu);
+        enterGrabMode();
+        if (settingDialog->isFixedTimeMode() &&
+            settingDialog->setQueryTicketMode(ESHORTINTERVAL)) {
+            formatOutput(_("刷票模式已自动切换为默认模式"));
+        }
     } else {
-        UserData::instance()->setRunStatus(EIDLE);
-        UserData::instance()->candidateRunStatus = EIDLE;
-        grabTicketPb->setText(tr("开始"));
-        fromStationLe->setEnabled(true);
-        toStationLe->setEnabled(true);
-        swapStationPb->setEnabled(true);
-        tourDateDe->setEnabled(true);
-
-        doGrabTicketTimer->stop();
-        updateProgressBarTimer->stop();
-        grabTicketInterval = 0;
-
-        queryTicketPb->setEnabled(true);
-        switchTicketShowTypePb->setEnabled(true);
-        passengerDialog->exitGrabTicketMode();
-        seatTypeDialog->exitGrabTicketMode();
-        trainNoDialog->exitGrabTicketMode();
-        tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+        if (fixedTimeGrabTimer->isActive()) {
+            fixedTimeGrabTimer->stop();
+            grabTicketPb->setText(tr("开始"));
+            return;
+        }
+        exitGrabMode();
     }
+}
+
+bool MainWindow::promptBeforeStartGrab()
+{
+    QString prompt;
+    UserData *ud = UserData::instance();
+    prompt += _("候补：");
+    if (ud->candidateSetting.isCandidate) {
+        prompt += _("已启用\n");
+    } else {
+        prompt += _("未启用\n");
+    }
+    prompt += _("定时抢票：");
+    if (ud->grabSetting.fixedTimeGrab) {
+        prompt += _("%1 %2:%3:%4\n").arg(ud->grabSetting.grabTicketDate)
+                      .arg(ud->grabSetting.grabTicketHour, 2, 10, QLatin1Char('0'))
+                      .arg(ud->grabSetting.grabTicketMinute, 2, 10, QLatin1Char('0'))
+                      .arg(ud->grabSetting.grabTicketSecond, 2, 10, QLatin1Char('0'));
+    } else {
+        prompt += _("未启用\n");
+        prompt += _("日期：%1\n").arg(ud->userConfig.tourDate);
+    }
+    prompt += _("起始站：%1\n").arg(ud->userConfig.staFromName);
+    prompt += _("到达站：%1\n").arg(ud->userConfig.staToName);
+    prompt += _("乘车人：");
+    const QList<QString> &passengers = passengerDialog->getSelectedPassenger();
+    for (auto &p : passengers) {
+        prompt += p + _("、");
+    }
+    prompt.truncate(prompt.length() - 1);
+    prompt += _("\n席别：");
+    const QList<QString> &seatType = seatTypeDialog->getSelectedSeatType();
+    for (auto &s : seatType) {
+        prompt += s + _("、");
+    }
+    prompt.truncate(prompt.length() - 1);
+    prompt += _("\n车次：");
+    const QList<QString> &train = trainNoDialog->getSelectedTrainList();
+    int count = qMin(train.size(), 50);
+    for (int i = 0; i < count; i++) {
+        QString s = train[i];
+        prompt += s.remove('(') + _("、");
+    }
+    if (count < train.size()) {
+        prompt += _("...(更多已隐藏)");
+    }
+    prompt.truncate(prompt.length() - 1);
+    prompt += _("\n");
+    QString seat = seatDialog->getChoosedSeats('M');
+    if (!seat.isEmpty()) {
+        prompt += _("选座一等座：") + seat + _("\n");
+    }
+    seat = seatDialog->getChoosedSeats('O');
+    if (!seat.isEmpty()) {
+        prompt += _("选座二等座：") + seat + _("\n");
+    }
+    seat = seatDialog->getChoosedSeats('P');
+    if (!seat.isEmpty()) {
+        prompt += _("选座特等座：") + seat + _("\n");
+    }
+    /*QLabel la;
+    la.setText(prompt);
+    QDialog dialog;
+    QVBoxLayout vlayout;
+    vlayout.addWidget(&la);
+    dialog.setLayout(&vlayout);
+    return dialog.exec();*/
+    QMessageBox::StandardButton clicked = QMessageBox::information(this, tr("确认信息"),
+        prompt, QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    return clicked == QMessageBox::Yes;
 }
 
 void MainWindow::startOrStopGrabTicket()
@@ -1046,16 +1261,36 @@ void MainWindow::startOrStopGrabTicket()
             formatOutput(_("请先选择席别！"));
             return;
         }
+        if (!promptBeforeStartGrab()) {
+            return;
+        }
     }
+    ud->lastRunSuccess = false;
     grabTicketPbStatus = !grabTicketPbStatus;
     prepareGrabTicket(grabTicketPbStatus);
 }
 
 void MainWindow::doGrabTicket()
 {
-    std::uniform_int_distribution<int> dist(2000, 6000);
+    static int enterTimes;
     if (UserData::instance()->runStatus == EGRABTICKET) {
-        grabTicketInterval = dist(*QRandomGenerator::global());
+        if (settingDialog->isShortMode()) {
+            grabTicketInterval = 3000;
+        } else if (settingDialog->isRandomMode()) {
+            std::uniform_int_distribution<int> dist(2000, 6000);
+            grabTicketInterval = dist(*QRandomGenerator::global());
+        } else if (settingDialog->isFixedTimeMode()) {
+            enterTimes++;
+            if (enterTimes >= 30) {
+                settingDialog->setQueryTicketMode(ESHORTINTERVAL);
+                enterTimes = 0;
+            }
+        } else if (settingDialog->isCustomMode()) {
+            grabTicketInterval = UserData::instance()->grabSetting.grabIntervalSeconds * 1000;
+        } else {
+            grabTicketInterval = 3000;
+        }
+
         doGrabTicketTimer->setInterval(grabTicketInterval);
         updateProgressBarTimer->setInterval(grabTicketInterval >> 3);
         nextRequestProgress->setRange(0, grabTicketInterval);
@@ -1142,14 +1377,69 @@ void MainWindow::loadStationName()
     NetHelper::instance()->getStationNameTxt();
 }
 
-void MainWindow::canCandidate()
+void MainWindow::resetLoginDialog()
 {
-
+    loginDialog->reset();
 }
 
-void MainWindow::chooseSeat()
+void MainWindow::showLoginDialog()
 {
+    resetLoginDialog();
+    hide();
+    loginDialog->show();
+}
 
+void MainWindow::showMainWindow()
+{
+    loginDialog->hide();
+    show();
+}
+
+void MainWindow::playMusic()
+{
+    UserData *ud = UserData::instance();
+    QString musicFile = ud->generalSetting.customMusic && !ud->generalSetting.customMusicPath.isEmpty()?
+                            ud->generalSetting.customMusicPath : ud->generalSetting.musicPath;
+    if (player->source() != musicFile) {
+        player->setSource(musicFile);
+    }
+    player->play();
+}
+
+void MainWindow::stopPlayMusic()
+{
+    if (player) {
+        player->stop();
+    }
+}
+
+void MainWindow::startOrStopPlayMusic()
+{
+    static bool playing;
+    UserData *ud = UserData::instance();
+
+    if (playing) {
+        stopPlayMusic();
+        playMusicPb->setText(tr("试听音乐"));
+        if (stopMusicTimer->isActive()) {
+            stopMusicTimer->stop();
+        }
+    } else {
+        playMusic();
+        playMusicPb->setText(tr("停止音乐"));
+        if (ud->generalSetting.stopAfterTime &&
+            !stopMusicTimer->isActive()) {
+            stopMusicTimer->start(10 * 60 * 1000);
+        }
+    }
+    playing = !playing;
+}
+
+void MainWindow::setMusicPath(const QString &path)
+{
+    if (player) {
+        player->setSource(path);
+    }
 }
 
 void MainWindow::rightMenuSelectTrain()
@@ -1417,6 +1707,9 @@ void MainWindow::formatOutput(const QString &output)
     textBuff += date.toString(Qt::ISODate);
     textBuff += QStringLiteral(" ") + output;
     browser->append(textBuff);
+    if (output == "用户未登录") {
+        qDebug() << output;
+    }
     UserData *ud = UserData::instance();
     if (ud->runStatus == ESUBMITORDER ||
         ud->candidateRunStatus == ESUBMITCANDIDATE) {
@@ -1441,7 +1734,7 @@ void MainWindow::about()
     QMessageBox::about(this, tr("About 12306 qt client"),
                        tr("<h2>12306 qt client 0.1</h2>"
                           "<p>Copyleft; 2019 Software Inc."
-                          "<p>12306 qt client is a client writen "
+                          "<p>12306 qt <a href=\"www.yunying.com\">云映</a> client is a client writen "
                           "by third party and public under GPLv3."
                           ));
 }
@@ -1451,4 +1744,5 @@ MainWindow::~MainWindow()
     delete ui;
     delete tableView->itemDelegate();
     delete tableView;
+    delete stopMusicTimer;
 }

@@ -27,12 +27,7 @@ public:
     void enterGrabTicketMode();
     void exitGrabTicketMode();
 
-public Q_SLOTS:
-    void show();
-    void hide();
-
 public:
-    QDialog *dialog;
     QListWidget *selected;
     QListWidget *unSelected;
     QPushButton *addSelectedPb;

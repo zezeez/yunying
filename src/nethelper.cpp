@@ -2,7 +2,7 @@
 #include "mainwindow.h"
 #include "userdata.h"
 #include "12306.h"
-#include "sm4.h"
+#include "lib/sm4/include/sm4.h"
 #include "loginconf.h"
 #include "logindialog.h"
 #include "completeedit.h"
@@ -29,8 +29,6 @@
 #define _ QStringLiteral
 
 extern MainWindow *w;
-
-QList<std::pair<QString, QString>> ticketType;
 
 void ReqParam::put(QString key, QString value)
 {
@@ -67,6 +65,38 @@ NetHelper::NetHelper(QObject *parent) : QObject(parent),
     });
     nam->setCookieJar(cookieJar);
     queryLeftTicketUrl = _(QUERYTICKETBASEURL);
+
+    netStatSample.fill(0, ENETHELPERSTATMAX);
+    statSnapshot.resize(2);
+    statSnapshot[0].fill(0, ENETHELPERSTATMAX);
+    statSnapshot[1].fill(0, ENETHELPERSTATMAX);
+    capSnapTimer = new QTimer;
+    connect(capSnapTimer, &QTimer::timeout, this, [this] () {
+        statSnapshot[1] = statSnapshot[0];
+        statSnapshot[0] = netStatSample;
+        QVector<int> v;
+        for (int i = 0; i < statSnapshot[0].size(); i++) {
+            v.append(statSnapshot[0][i] - statSnapshot[1][i]);
+        }
+        w->statChart->update(v);
+    });
+    capSnapTimer->setInterval(60 * 60 * 1000);
+    capSnapTimer->start();
+    rttDelayTimer = new QTimer;
+    connect(rttDelayTimer, &QTimer::timeout, this, [this] () {
+        int total = 0;
+        if (rttSamples.isEmpty()) {
+            return;
+        }
+        for (auto &d : rttSamples) {
+            total += d;
+        }
+        total /= rttSamples.size();
+        w->delayChart->update(total);
+        rttSamples.clear();
+    });
+    rttDelayTimer->setInterval(30 * 60 * 1000);
+    rttDelayTimer->start();
 }
 
 NetHelper *NetHelper::instance()
@@ -125,6 +155,21 @@ void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack 
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
 
+#ifdef HAS_CDN
+void NetHelper::post(const QUrl &url, ReqParam &param, const QString &ip, NetHelper::replyCallBack rcb)
+{
+    QNetworkRequest request;
+    request.setUrl(url);
+    request.setTransferTimeout(REQUESTTIMEOUT);
+    setHeader(url, request);
+    param.finish();
+    QNetworkReply *reply = nam->post(request, param.get().toUtf8());
+    replyMap.insert(reply, rcb);
+    QDateTime time = QDateTime::currentDateTime();
+    rttMap.insert(reply, time.toMSecsSinceEpoch());
+}
+#endif
+
 void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
 {
     QNetworkRequest request;
@@ -155,20 +200,21 @@ void NetHelper::get(const QUrl &url, replyCallBack rcb)
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
 
+#ifdef HAS_CDN
 void NetHelper::get(const QUrl &url, const QString &ip, replyCallBack rcb)
 {
     QNetworkRequest request;
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
     request.setPeerVerifyName("kyfw.12306.cn");
-    //request.setIpAddress(ip);
-    //qDebug() << request.ipAddress();
+    request.setIpAddress(ip);
     setHeader(url, request);
     QNetworkReply *reply = nam->get(request);
     replyMap.insert(reply, rcb);
     QDateTime time = QDateTime::currentDateTime();
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
+#endif
 
 void NetHelper::get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
 {
@@ -221,9 +267,8 @@ int NetHelper::caculateRTTDelay(QNetworkReply *reply, enum QNetworkReply::Networ
     }
     QDateTime time = QDateTime::currentDateTime();
     int rttDelay = time.toMSecsSinceEpoch() - sample;
-    /*rttSamples.append(time.toMSecsSinceEpoch() - sample);
-    int size = rttSamples.size();
-    int rttDelay = -1;
+    rttSamples.append(rttDelay);
+    /*int size = rttSamples.size();
 
     if (size > 3) {
         int caculSize = size;
@@ -254,6 +299,7 @@ int NetHelper::checkReplyOk(QNetworkReply *reply)
             errorNo == QNetworkReply::TimeoutError ||
             errorNo == QNetworkReply::UnknownNetworkError) {
             w->formatOutput(_("网络异常，请检查网络连接！"));
+            netStatInc(ENETERR);
         }
         caculateRTTDelay(reply, errorNo);
         return -1;
@@ -275,6 +321,7 @@ int NetHelper::checkReplyOk(QNetworkReply *reply)
     }
     if (statusCodeInt != 200) {
         w->formatOutput(QStringLiteral("服务器HTTP状态码返回错误(%1)").arg(statusCodeInt));
+        netStatInc(EBADREPLY);
         return -1;
     }
 
@@ -294,6 +341,7 @@ int NetHelper::replyIsOk(QNetworkReply *reply, QVariantMap &varMap)
         w->formatOutput(QStringLiteral("服务器返回数据JSON解析错误，错误位置：%1，错误码：%2，错误描述：%3")
                             .arg(error.offset).arg(error.error).arg(error.errorString()));
         qDebug() << ba;
+        netStatInc(EBADREPLY);
         return -1;
     }
 
@@ -361,12 +409,10 @@ void NetHelper::getLoginConfReply(QNetworkReply *reply)
             // 隐藏扫码登录入口
             w->loginDialog->hideQrCodeTab();
         }
-        w->loginDialog->show();
-        w->hide();
+        w->showLoginDialog();
     } else {
         if (lconf.isLogin) {
-            w->loginDialog->hide();
-            w->show();
+            w->showMainWindow();
         } else {
             // 隐藏扫码登录入口
             w->loginDialog->hideQrCodeTab();
@@ -582,10 +628,9 @@ void NetHelper::loginIndex()
 
 void NetHelper::loginSuccess()
 {
-    w->loginDialog->hide();
-    w->show();
-    getPassengerInfo();
+    w->showMainWindow();
     w->showStatusBarMessage(_("当前用户：%1").arg(UserData::instance()->getUserLoginInfo().account));
+    getPassengerInfo();
 }
 
 void NetHelper::createQrCode()
@@ -595,23 +640,7 @@ void NetHelper::createQrCode()
 
     data.put(_("appid"), _(PASSPORT_APPID));
     post(url, data, &NetHelper::createQrCodeReply);
-
-    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(w->loginDialog->dialog->layout());
-    QTabWidget *tab = static_cast<QTabWidget *>(hLayout->itemAt(0)->widget());
-    QWidget *widget = tab->widget(1);
-    QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
-    QLabel *label = static_cast<QLabel *>(vLayout->itemAt(0)->widget());
-    QLabel *tipsLabel = static_cast<QLabel *>(vLayout->itemAt(1)->widget());
-    QMovie *movie = label->movie();
-    if (!movie) {
-        movie = new QMovie(_(":/icon/images/loading.gif"));
-        label->setMovie(movie);
-        movie->start();
-    } else {
-        movie->stop();
-        movie->start();
-    }
-    tipsLabel->setText(QStringLiteral("加载中..."));
+    w->loginDialog->showLoadingQrCode();
 }
 
 void NetHelper::createQrCodeReply(QNetworkReply *reply)
@@ -634,42 +663,19 @@ void NetHelper::createQrCodeReply(QNetworkReply *reply)
         // Has error
         return;
     }
-    QString base64Str = varMap[_("image")].toString();
-    QByteArray image = QByteArray::fromBase64(base64Str.toUtf8());
-    if (!w->loginDialog)
-        return;
-    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(w->loginDialog->dialog->layout());
-    QTabWidget *tab = static_cast<QTabWidget *>(hLayout->itemAt(0)->widget());
-    QWidget *widget = tab->widget(1);
-    QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
-    ClickLabel *label = static_cast<ClickLabel *>(vLayout->itemAt(0)->widget());
-    QLabel *tipsLabel = static_cast<QLabel *>(vLayout->itemAt(1)->widget());
-    QMovie *movie = label->movie();
-    if (movie) {
-        label->setMovie(nullptr);
-        movie->stop();
-        delete movie;
-    }
-    QPixmap pixMap;
-    pixMap.loadFromData(image);
-    label->setPixmap(pixMap);
-    tipsLabel->setText(tr("打开12306手机APP扫描二维码"));
-    QString uuid = varMap[_("uuid")].toString();
-    if (!qrCodeRefreshTimer) {
-        qrCodeRefreshTimer = new QTimer;
-        connect(qrCodeRefreshTimer, &QTimer::timeout, this, [=]() {
-            QUrl url = QStringLiteral(CHECKQR);
-            ReqParam param;
-            param.put(_("RAIL_DEVICEID"), _(""));
-            param.put(("RAIL_EXPIRATION"), _(""));
-            param.put(_("uuid"), uuid);
-            param.put(_("appid"), _(PASSPORT_APPID));
-            post(url, param, &NetHelper::checkQrCodeReply);
-        });
-        qrCodeRefreshTimer->setInterval(1500);
-    }
 
-    qrCodeRefreshTimer->start();
+    w->loginDialog->showLoadedQrCode(varMap);
+}
+
+void NetHelper::checkQrCode(const QString &uuid)
+{
+    QUrl url = QStringLiteral(CHECKQR);
+    ReqParam param;
+    param.put(_("RAIL_DEVICEID"), _(""));
+    param.put(("RAIL_EXPIRATION"), _(""));
+    param.put(_("uuid"), uuid);
+    param.put(_("appid"), _(PASSPORT_APPID));
+    post(url, param, &NetHelper::checkQrCodeReply);
 }
 
 void NetHelper::checkQrCodeReply(QNetworkReply *reply)
@@ -677,50 +683,9 @@ void NetHelper::checkQrCodeReply(QNetworkReply *reply)
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0)
         return;
-    if (!w->loginDialog)
-        return;
 
-    QPixmap pixMap;
-    int result_code = varMap[QLatin1String("result_code")].toInt();
-    ClickLabel *qrCodeLable = w->loginDialog->qrCodeLabel;
-    QLabel *tipsLabel = w->loginDialog->tipsLabel;
-    // 0：未识别、
-    // 1：已识别，暂未授权（未点击授权或不授权）、
-    // 2：登录成功，（已识别且已授权）、
-    // 3：已失效、
-    // 5系统异常
-    switch (result_code) {
-    case 0:
-        break;
-    case 1:
-        pixMap.load(QStringLiteral(":/icon/images/login-success.png"));
-        qrCodeLable->setPixmap(pixMap);
-        tipsLabel->setText(tr("已扫码，请在12306 APP上点击确认"));
-        break;
-    case 2:
-        loginIndex();
-        passportUamtk();
-        qrCodeRefreshTimer->stop();
-        break;
-    case 3:
-        pixMap.load(QStringLiteral(":/icon/images/qrcode_invalid.png"));
-        qrCodeLable->setPixmap(pixMap);
-        tipsLabel->setText(tr("二维码已失效，点击刷新"));
-        qrCodeRefreshTimer->stop();
-        break;
-    case 5:
-        pixMap.load(QStringLiteral(":/icon/images/qrcode_invalid.png"));
-        qrCodeLable->setPixmap(pixMap);
-        tipsLabel->setText(tr("系统错误，点击刷新"));
-        qrCodeRefreshTimer->stop();
-        break;
-    default:
-        pixMap.load(QStringLiteral(":/icon/images/qrcode_invalid.png"));
-        qrCodeLable->setPixmap(pixMap);
-        tipsLabel->setText(tr("二维码已失效，点击刷新"));
-        qrCodeRefreshTimer->stop();
-        break;
-    }
+    int result_code = varMap[_("result_code")].toInt();
+    w->loginDialog->updateQrCodeStatus(result_code);
 }
 
 void NetHelper::sendSmsRequest(const QString &idCardNumTail)
@@ -767,6 +732,7 @@ void NetHelper::queryTicket()
     get(url, &NetHelper::queryTicketReply);
 }
 
+#ifdef HAS_CDN
 void NetHelper::queryTicketForCDN()
 {
     QUrl url;
@@ -788,6 +754,7 @@ void NetHelper::queryTicketForCDN()
 
     get(url, cdn[cdnIndex++ % cdn.size()], &NetHelper::queryTicketReply);
 }
+#endif
 
 void NetHelper::queryTicketReply(QNetworkReply *reply)
 {
@@ -843,14 +810,20 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
         return;
     }
     QNetworkRequest req = reply->request();
-    QUrl url;
-    for (int i = 0; i < candidateDiffDateStatus.size(); i++) {
-        url = req.url();
-        if (url.url().contains(candidateDiffDateStatus[i].first)) {
-            candidateDiffDateStatus[i].second = true;
+    QUrl url = req.url();
+    QString date;
+    for (auto &d : ud->candidateInfo.diffDateTrain) {
+        if (url.url().contains(d.date)) {
+            d.hasUpdate = true;
+            date = d.date;
             break;
         }
     }
+    if (date.isEmpty()) {
+        handlecandidateError();
+        return;
+    }
+
     QVariantMap stationMap = data[_("map")].toMap();
 
     if (stationMap.isEmpty()) {
@@ -865,9 +838,8 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
         return;
     }
     QVector<QStringList> allTrain;
-    int resultListSize = resultList.size();
-    for (int i = 0; i < resultListSize; i++) {
-        QString train = resultList[i].toString();
+    for (auto &d : resultList) {
+        QString train = d.toString();
         QStringList trainInfo = train.split('|');
 
         if (trainInfo.size() < ESEATTYPES) {
@@ -886,7 +858,7 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
 
     if (!allTrain.isEmpty()) {
         Analysis ana(allTrain);
-        ana.mayCandidate(stationMap);
+        ana.mayCandidate(stationMap, date);
     } else {
         handlecandidateError();
     }
@@ -995,7 +967,7 @@ void NetHelper::getPassengerInfoReply(QNetworkReply *reply)
     if (!isExist) {
         QString exMsg = data[_("exMsg")].toString();
         if (!exMsg.isEmpty()) {
-            w->formatOutput(exMsg);
+            w->formatOutput(_("获取乘车人失败，原因：%1").arg(exMsg));
         }
         bool noLogin = data[_("noLogin")].toBool();
         if (noLogin) {
@@ -1055,7 +1027,7 @@ void NetHelper::checkUserReply(QNetworkReply *reply)
         return;
     bool flag = data[QStringLiteral("flag")].toBool();
     if (!flag) {
-        //getLoginConf();
+        getLoginConf();
         w->startOrStopGrabTicket();
         return;
     }
@@ -1126,7 +1098,8 @@ void NetHelper::initDcReply(QNetworkReply *reply)
 
     if (ud->submitTicketInfo.repeatSubmitToken.isEmpty() ||
         ud->submitTicketInfo.purposeCodes.isEmpty() ||
-        ud->submitTicketInfo.trainLocation.isEmpty()) {
+        ud->submitTicketInfo.trainLocation.isEmpty() ||
+        ud->submitTicketInfo.leftTicketStr.isEmpty()) {
         w->formatOutput(_("下单失败，无法从服务器获取指定的参数！"));
         handleError();
         return;
@@ -1137,6 +1110,7 @@ void NetHelper::initDcReply(QNetworkReply *reply)
 void NetHelper::handleError()
 {
     UserData::instance()->recoverRunStatus();
+    netStatInc(ESUBMITFAILED);
 }
 
 void NetHelper::submitOrderRequest()
@@ -1162,6 +1136,7 @@ void NetHelper::submitOrderRequest()
     w->formatOutput(_("正在提交订单..."));
     ud->setRunStatus(ESUBMITORDER);
     qDebug() << __FUNCTION__;
+    netStatInc(ESUBMIT);
 }
 
 void NetHelper::submitOrderRequestReply(QNetworkReply *reply)
@@ -1223,6 +1198,7 @@ void NetHelper::checkOrderInfoReply(QNetworkReply *reply)
         if (!messages.isEmpty()) {
             w->formatOutput(QStringLiteral("出票失败! 错误描述：%1").arg(messages[0]));
         }
+        netStatInc(ESUBMITFAILED);
         return;
     }
     QVariantMap data = varMap[QStringLiteral("data")].toMap();
@@ -1275,7 +1251,7 @@ void NetHelper::getQueueCount()
     param.put(_("train_no"), ud->submitTicketInfo.trainNo);
     param.put(_("stationTrainCode"), ud->submitTicketInfo.trainCode);
     param.put(_("seatType"), !ud->submitTicketInfo.submitSeatType.isEmpty() ?
-                                 ud->submitTicketInfo.submitSeatType[0] : _(""));
+                                 ud->submitTicketInfo.submitSeatType[0].second : _(""));
     param.put(_("fromStationTelecode"), ud->submitTicketInfo.fromStationCode);
     param.put(_("toStationTelecode"), ud->submitTicketInfo.toStationCode);
     param.put(_("leftTicket"), ud->submitTicketInfo.ypDetailInfo);
@@ -1312,6 +1288,7 @@ void NetHelper::getQueueCountReply(QNetworkReply *reply)
         w->hide();
         w->loginDialog->show();
         UserData::instance()->setRunStatus(EIDLE);
+        netStatInc(ESUBMITFAILED);
         return;
     }
     QStringList ticketList = data[_("ticket")].toString().split(',');
@@ -1319,7 +1296,7 @@ void NetHelper::getQueueCountReply(QNetworkReply *reply)
     bool ok;
     UserData *ud = UserData::instance();
     QChar c = !ud->submitTicketInfo.submitSeatType.isEmpty() ?
-                  ud->submitTicketInfo.submitSeatType[0] : QChar('0');
+                  ud->submitTicketInfo.submitSeatType[0].second : QChar('0');
     int remain = ticketList[0].toInt(&ok);
     if (ok) {
         disp.append(_("本次列车%1余票%2张").arg(seatTypeSubmtiCodeTransToDesc(c))
@@ -1376,10 +1353,10 @@ void NetHelper::confirmSingle()
     param.put(_("train_location"), ud->submitTicketInfo.trainLocation);
     if (canChooseSeats && !chooseSeat.isEmpty() &&
         !ud->submitTicketInfo.submitSeatType.isEmpty()) {
-        QChar isSame = ud->submitTicketInfo.submitSeatType[0];
+        QChar isSame = ud->submitTicketInfo.submitSeatType[0].second;
         int i;
         for (i = 1; i < ud->submitTicketInfo.submitSeatType.size(); i++) {
-            if (ud->submitTicketInfo.submitSeatType[i] != isSame) {
+            if (ud->submitTicketInfo.submitSeatType[i].second != isSame) {
                 break;
             }
         }
@@ -1388,17 +1365,23 @@ void NetHelper::confirmSingle()
             selectedSeats = w->seatDialog->getChoosedSeats(isSame);
             if (selectedSeats.size() > ud->submitTicketInfo.submitSeatType.size() * 2) {
                 selectedSeats.truncate(ud->submitTicketInfo.submitSeatType.size() * 2);
-            }
-            if (selectedSeats.isEmpty()) {
-                w->formatOutput(_("本次席别未选座，将由系统随机分配座位"));
-            } else {
                 w->formatOutput(_("提交选座%1，实际座位号以系统出票结果为准").arg(selectedSeats));
+            } else {
+                if (selectedSeats.size() < ud->submitTicketInfo.submitSeatType.size() * 2) {
+                    if (selectedSeats.isEmpty()) {
+                        w->formatOutput(_("本次席别未选座，将由系统随机分配座位"));
+                    } else {
+                        w->formatOutput(_("已选座人数少于提交人数，本次提交不选座，将由系统随机分配座位"));
+                        selectedSeats.clear();
+                    }
+                } else {
+                    w->formatOutput(_("提交选座%1，实际座位号以系统出票结果为准").arg(selectedSeats));
+                }
             }
         } else {
             w->formatOutput(_("本次提交暂不支持选座，将由系统随机分配座位"));
         }
         param.put(_("choose_seats"), selectedSeats);
-        w->formatOutput(_("提交选座%1，实际座位号以系统出票结果为准").arg(selectedSeats));
     } else {
         param.put(_("choose_seats"), _(""));
         w->formatOutput(_("本次列车暂不支持选座，将由系统自动分配座位"));
@@ -1466,10 +1449,10 @@ void NetHelper::confirmSingleForQueue()
     param.put(_("train_location"), ud->submitTicketInfo.trainLocation);
     if (canChooseSeats && !chooseSeat.isEmpty() &&
         !ud->submitTicketInfo.submitSeatType.isEmpty()) {
-        QChar isSame = ud->submitTicketInfo.submitSeatType[0];
+        QChar isSame = ud->submitTicketInfo.submitSeatType[0].second;
         int i;
         for (i = 1; i < ud->submitTicketInfo.submitSeatType.size(); i++) {
-            if (ud->submitTicketInfo.submitSeatType[i] != isSame) {
+            if (ud->submitTicketInfo.submitSeatType[i].second != isSame) {
                 break;
             }
         }
@@ -1478,11 +1461,18 @@ void NetHelper::confirmSingleForQueue()
             selectedSeats = w->seatDialog->getChoosedSeats(isSame);
             if (selectedSeats.size() > ud->submitTicketInfo.submitSeatType.size() * 2) {
                 selectedSeats.truncate(ud->submitTicketInfo.submitSeatType.size() * 2);
-            }
-            if (selectedSeats.isEmpty()) {
-                w->formatOutput(_("本次席别未选座，将由系统随机分配座位"));
-            } else {
                 w->formatOutput(_("提交选座%1，实际座位号以系统出票结果为准").arg(selectedSeats));
+            } else {
+                if (selectedSeats.size() < ud->submitTicketInfo.submitSeatType.size() * 2) {
+                    if (selectedSeats.isEmpty()) {
+                        w->formatOutput(_("本次席别未选座，将由系统随机分配座位"));
+                    } else {
+                        w->formatOutput(_("已选座人数少于提交人数，本次提交不选座，将由系统随机分配座位"));
+                        selectedSeats.clear();
+                    }
+                } else {
+                    w->formatOutput(_("提交选座%1，实际座位号以系统出票结果为准").arg(selectedSeats));
+                }
             }
         } else {
             w->formatOutput(_("本次提交暂不支持选座，将由系统随机分配座位"));
@@ -1655,6 +1645,7 @@ void NetHelper::resultOrderForDcQueueReply(QNetworkReply *reply)
     bool status = varMap[_("status")].toBool();
     if (!status) {
         w->formatOutput(_("出票成功"));
+        grabTicketSuccess();
         return;
     }
     QVariantMap data = varMap[_("data")].toMap();
@@ -1720,7 +1711,15 @@ void NetHelper::grabTicketSuccess()
 {
     //UserData::instance()->runStatus = EIDLE;
     // 结束任务
+    UserData *ud = UserData::instance();
+    ud->lastRunSuccess = true;
+    sendMail();
+    w->settingDialog->sendWxNotify(_("订单出票成功! 请尽快前往12306网站或12306手机APP完成支付，"
+        "如果超时未支付，订单将会在10分钟后自动取消"));
     w->startOrStopGrabTicket();
+    if (ud->generalSetting.playMusic) {
+        w->startOrStopPlayMusic();
+    }
 }
 
 void NetHelper::showCandidateWarn(const QString &face_check_code, bool is_show_qrcode)
@@ -1746,29 +1745,34 @@ void NetHelper::showCandidateWarn(const QString &face_check_code, bool is_show_q
 
 void NetHelper::handlecandidateError()
 {
-    candiateDiffDateData.clear();
-    candidateDiffDateStatus.clear();
+    UserData *ud = UserData::instance();
+    ud->candidateInfo.diffDateTrain.clear();
+    ud->candidateInfo.submitSecretStr.clear();
+    ud->candidateInfo.allSeatType.clear();
+    netStatInc(ECANDIDATEFAILED);
 }
 
-void NetHelper::candidateEntry(QList<QPair<QString, QChar>> &candidateSeatType)
+void NetHelper::candidateEntry(const struct CandidateDateInfo &dInfo)
 {
-    int i;
+    UserData *ud = UserData::instance();
 
-    if (candidateDiffDateStatus.isEmpty()) {
-        chechFace(candidateSeatType);
+    if (ud->candidateInfo.diffDateTrain.isEmpty()) {
+        chechFace(dInfo);
     } else {
-        candiateDiffDateData.push_back(candidateSeatType);
-        for (i = 0; i < candidateDiffDateStatus.size(); i++) {
-            if (candidateDiffDateStatus[i].second == false)
-                break;
+        for (auto &d : ud->candidateInfo.diffDateTrain) {
+            if (d.date == dInfo.date) {
+                d = dInfo;
+            } else {
+                if (!d.hasUpdate) {
+                    return;
+                }
+            }
         }
-        if (i == candidateDiffDateStatus.size()) {
-            confirmHB();
-        }
+        confirmHB();
     }
 }
 
-void NetHelper::chechFace(QList<QPair<QString, QChar>> &candidateSeatType)
+void NetHelper::chechFace(const struct CandidateDateInfo &dInfo)
 {
     QUrl url(_(CHECHFACE));
     ReqParam param;
@@ -1776,21 +1780,22 @@ void NetHelper::chechFace(QList<QPair<QString, QChar>> &candidateSeatType)
     QString tmp;
 
     // secretStr#席别代码|
-    if (!candidateSeatType.isEmpty()) {
-        tmp.append(candidateSeatType[0].first);
+    if (!dInfo.train.isEmpty() && !dInfo.train[0].seatType.isEmpty()) {
+        tmp.append(dInfo.train[0].secretStr);
         tmp.append('#');
-        tmp.append(candidateSeatType[0].second);
+        tmp.append(dInfo.train[0].seatType[0]);
         tmp.append('|');
         secretList.append(tmp.toUtf8().toPercentEncoding());
         tmp.clear();
 
-        candiateDiffDateData.append(candidateSeatType);
-
-        UserData::instance()->candidateSetting.secretList = secretList;
-        param.put(_("secretList"), UserData::instance()->candidateSetting.secretList);
+        UserData *ud = UserData::instance();
+        ud->candidateInfo.diffDateTrain.append(dInfo);
+        ud->candidateInfo.submitSecretStr = secretList;
+        param.put(_("secretList"), secretList);
         param.put(_("_json_att"), _(""));
         qDebug() << param.get();
         post(url, param, &NetHelper::checkFaceReply);
+        netStatInc(ECANDIDATE);
     }
 }
 
@@ -1832,7 +1837,7 @@ void NetHelper::submitCandidateOrderRequest()
     QUrl url(_(SUBMITCANDIDATEORDERQUEST));
     ReqParam param;
 
-    param.put(_("secretList"), UserData::instance()->candidateSetting.secretList);
+    param.put(_("secretList"), UserData::instance()->candidateInfo.submitSecretStr);
     param.put(_("_json_att"), _(""));
     post(url, param, &NetHelper::submitCandidateOrderRequestReply);
 }
@@ -1883,7 +1888,7 @@ void NetHelper::passengerInitApiReply(QNetworkReply *reply)
         handlecandidateError();
         return;
     }
-    int endCandidateMinutes = UserData::instance()->candidateSetting.endCandidateMinutes;
+    int endCandidateMinutes = UserData::instance()->candidateSetting.selectedEndCandidateMinutes;
     QVector<int> t(jzdhDiffSelect.size(), 0);
     QVector<QString> m;
     QString disp = _("可选的候补截止时间为：");
@@ -1985,12 +1990,16 @@ void NetHelper::getCandidateQueueNumReply(QNetworkReply *reply)
     if (!hasExtraDate) {
         confirmHB();
     } else {
+        struct CandidateDateInfo dInfo;
+        dInfo.hasUpdate = false;
         if (!extraDate.isEmpty()) {
-            candidateDiffDateStatus.append(QPair<QString, bool>(extraDate, false));
+            dInfo.date = extraDate;
+            ud->candidateInfo.diffDateTrain.append(dInfo);
             queryDiffDateTicket(extraDate);
         }
         if (!extraDate2.isEmpty()) {
-            candidateDiffDateStatus.append(QPair<QString, bool>(extraDate2, false));
+            dInfo.date = extraDate2;
+            ud->candidateInfo.diffDateTrain.append(dInfo);
             queryDiffDateTicket(extraDate2);
         }
         ud->candidateRunStatus = EWAITDIFFDATEDATA;
@@ -2005,6 +2014,7 @@ QString NetHelper::generateCandidateTicketInfo()
     QString secretList;
     QString tmp;
 
+    ud->candidateInfo.passengers.clear();
     for (i = 0; i < selectedPassengerList.size(); i++) {
         // 票类型#姓名#证件类型#证件号#EncStr#0;
         tmp.append(_("1#"));
@@ -2022,6 +2032,7 @@ QString NetHelper::generateCandidateTicketInfo()
             tmp.append('#');
             tmp.append(ud->passenger[k].allEncStr);
             tmp.append(_("#0;"));
+            ud->candidateInfo.passengers.append(ud->passenger[i].passName);
         } else {
             tmp.clear();
             continue;
@@ -2049,65 +2060,47 @@ void NetHelper::confirmHB()
     param.put(_("if_receive_wseat"), ud->candidateSetting.acceptNoSeat ? _("Y") : _("N"));
     param.put(_("realize_limit_time_diff"), QString::number(ud->candidateSetting.
                                                             selectedEndCandidateMinutes));
-    int i, j;
+    int i, j, k;
     int count = 0;
     QString plans;
     QString seatType;
     QString acceptTrainDate;
     QString acceptTrainTime;
-    QString tourDate;
+    QVector<QString> v;
 
-    if (ud->candidateSetting.acceptNewTrain) {
-        tourDate = ud->getUserConfig().tourDate;
-        acceptTrainDate.append(tourDate.remove('-'));
-        acceptTrainDate.append('#');
-        if (ud->candidateSetting.extraCandidateStartHour < 10) {
-            acceptTrainTime.append('0');
-        }
-        acceptTrainTime.append(QString::number(ud->candidateSetting.extraCandidateStartHour));
+    for (i = 0; i < ud->candidateInfo.diffDateTrain.size(); i++) {
+        struct CandidateDateInfo &trainDate = ud->candidateInfo.diffDateTrain[i];
+        for (j = 0; j < trainDate.train.size(); j++) {
+            for (k = 0; k < trainDate.train[j].seatType.size(); k++) {
+                // 第0个是前面已经提交过的
+                if (i == 0 && j == 0 && k == 0)
+                    continue;
 
-        if (ud->candidateSetting.extraCandidateEndHour < 10) {
-            acceptTrainTime.append('0');
-        }
-        acceptTrainTime.append(QString::number(ud->candidateSetting.extraCandidateEndHour));
-        acceptTrainTime.append('#');
-
-        for (i = 0; i < candidateDiffDateStatus.size(); i++) {
-            acceptTrainDate.append(candidateDiffDateStatus[i].first.remove('-'));
-            acceptTrainDate.append('#');
-
-            if (ud->candidateSetting.extraCandidateStartHour < 10) {
-                acceptTrainTime.append('0');
+                // secretStr,seatTypeCode#
+                if (count < 60) {
+                    plans.append(trainDate.train[j].secretStr);
+                    plans.append(',');
+                    plans.append(trainDate.train[j].seatType[k]);
+                    plans.append('#');
+                }
+                count++;
             }
-            acceptTrainTime.append(QString::number(ud->candidateSetting.extraCandidateStartHour));
-
-            if (ud->candidateSetting.extraCandidateEndHour < 10) {
-                acceptTrainTime.append('0');
-            }
-            acceptTrainTime.append(QString::number(ud->candidateSetting.extraCandidateEndHour));
-            acceptTrainTime.append('#');
         }
-        if (!candiateDiffDateData.isEmpty() && !candiateDiffDateData[0].isEmpty()) {
-            for (i = 0; i < candiateDiffDateData[0].size(); i++) {
-                seatType.append(candiateDiffDateData[0][i].second);
-            }
+        if (j) {
+            QString date = trainDate.date;
+            v.append(date.remove('-'));
         }
     }
-
-    for (i = 0; i < candiateDiffDateData.size(); i++) {
-        QList<QPair<QString, QChar>> &trainData = candiateDiffDateData[i];
-        for (j = 0; j < trainData.size(); j++) {
-            // 第0个是前面已经提交过的
-            if (i == 0 && j == 0)
-                continue;
-            // secretStr,seatTypeCode#
-            if (count < 60) {
-                plans.append(trainData[j].first);
-                plans.append(',');
-                plans.append(trainData[j].second);
-                plans.append('#');
-            }
-            count++;
+    if (!ud->candidateInfo.diffDateTrain.isEmpty() &&
+        !ud->candidateInfo.diffDateTrain[0].train.isEmpty()) {
+        seatType.append(ud->candidateInfo.diffDateTrain[0].train[0].seatType);
+    }
+    if (ud->candidateSetting.acceptNewTrain) {
+        std::sort(v.begin(), v.end());
+        for (auto &d : v) {
+            acceptTrainDate.append(_("%1#").arg(d));
+            acceptTrainTime.append(_("%1%2#").arg(ud->candidateSetting.extraCandidateStartHour, 2, 10, QChar('0'))
+                                             .arg(ud->candidateSetting.extraCandidateEndHour, 2, 10, QChar('0')));
         }
     }
     // 备选日期的列车
@@ -2115,7 +2108,7 @@ void NetHelper::confirmHB()
     // 增开列车
     param.put(_("tmp_train_date"), acceptTrainDate.toUtf8().toPercentEncoding());
     param.put(_("tmp_train_time"), acceptTrainTime.toUtf8().toPercentEncoding());
-    param.put(_("add_train_flag"), ud->candidateSetting.acceptNewTrain ? "Y" : _("N"));
+    param.put(_("add_train_flag"), ud->candidateSetting.acceptNewTrain && !v.isEmpty() ? "Y" : _("N"));
     // 增开列车座位
     param.put(_("add_train_seat_type_code"), seatType);
     qDebug() << param.get();
@@ -2160,6 +2153,7 @@ void NetHelper::confirmHBReply(QNetworkReply *reply)
             if (!msg.isEmpty()) {
                 w->formatOutput(msg);
             }
+            handlecandidateError();
         }
     } else {
         if (flag) {
@@ -2169,6 +2163,7 @@ void NetHelper::confirmHBReply(QNetworkReply *reply)
                 w->formatOutput(_("系统错误"));
             }
         }
+        handlecandidateError();
     }
 }
 
@@ -2214,6 +2209,7 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
                 lineUptoPayConfirm(reserve_no);
             } else if (status == -1) {
                 w->formatOutput(!msg.isEmpty() ? msg : _("排队失败！"));
+                handlecandidateError();
                 if (queryCandidateTimer) {
                     queryCandidateTimer->stop();
                 }
@@ -2235,6 +2231,7 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
             }
         } else {
             w->formatOutput(!msg.isEmpty() ? msg : _("系统错误"));
+            handlecandidateError();
             if (queryCandidateTimer) {
                 queryCandidateTimer->stop();
             }
@@ -2246,26 +2243,176 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
             lineUptoPayConfirm(reserve_no);
         } else {
             w->formatOutput(!msg.isEmpty() ? msg : _("系统错误"));
+            handlecandidateError();
         }
         if (queryCandidateTimer) {
             queryCandidateTimer->stop();
         }
     }
-    handlecandidateError();
+    UserData *ud = UserData::instance();
+    ud->candidateInfo.diffDateTrain.clear();
+    ud->candidateInfo.submitSecretStr.clear();
+    ud->candidateInfo.allSeatType.clear();
+}
+
+void NetHelper::sendMail()
+{
+    UserData *ud = UserData::instance();
+    if (ud->notifySetting.emailNotify.notifyEmailEnable) {
+        QString mailTemplate = "<html>"
+                               "<head>"
+                               "<meta charset=\"UTF-8\">"
+                               "</head>"
+                               "<body>"
+                               "<p>恭喜您预订的车次%1已经出票成功，请您及时支付，否则订单超时将自动取消，订单详情如下：</p>"
+                               "<br />"
+                               "<table border=\"1\" style=\"color: #8B1A1A; background-color: #FFFAFA; margin-left: 20px\">"
+                               "<tr>"
+                               "<td>乘客</td><td>下单时间</td><td>乘车日期</td><td>车次</td><td>席别</td><td>始发站</td><td>终点站</td>"
+                               "<td>上车站</td><td>下车站</td><td>上车时间</td><td>下车时间</td><td>历时</td>"
+                               "</tr>";
+        QString mailContent;
+        QDateTime now = QDateTime::currentDateTime();
+        mailContent += mailTemplate.arg(ud->submitTicketInfo.trainCode);
+        for (int i = 0; i < ud->submitTicketInfo.submitSeatType.size(); i++) {
+            mailContent += _("<tr>");
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.submitSeatType[i].first);
+            mailContent += _("<td>%1</td>").arg(now.toString(_("yyyy-MM-dd hh:mm:ss")));
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.date);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.trainCode);
+            mailContent += _("<td>%1</td>").arg(seatTypeSubmtiCodeTransToDesc(ud->submitTicketInfo.submitSeatType[i].second));
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.startSTationName);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.endStationName);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.fromStationName);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.toStationName);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.fromTime);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.toTime);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.travelTime);
+            mailContent += _("</tr>");
+        }
+        mailContent += "</table>"
+            "<p>您收到此通知是因为您在<a href=\"https://www.yunying.org\">云映程序</a>配置了此邮箱，"
+            "如您未使用<a href=\"https://www.yunying.org\">云映程序</a>进行过相关配置或未授权他人使用此邮箱，请忽略本邮件。</p>"
+            "</body>"
+            "</html>";
+        w->settingDialog->sendMail(mailContent);
+    }
+}
+
+void NetHelper::sendCandidateMail()
+{
+    UserData *ud = UserData::instance();
+    if (ud->notifySetting.emailNotify.notifyEmailEnable) {
+        QString mailTemplate = "<html>"
+                               "<head>"
+                               "<meta charset=\"UTF-8\">"
+                               "</head>"
+                               "<body>"
+                               "<p>恭喜您候补车票已经出票成功，请您及时支付，否则订单超时将自动取消，订单详情如下：</p>"
+                               "<br />"
+                               "<table border=\"1\" style=\"color: #8B1A1A; background-color: #FFFAFA; margin-left: 20px\">"
+                               "<tr>"
+                               "<td>乘客</td><td>下单时间</td><td>乘车日期</td><td>车次</td><td>席别</td>"
+                               "<td>上车站</td><td>下车站</td>"
+                               "</tr>";
+        QString mailContent;
+        QDateTime now = QDateTime::currentDateTime();
+        mailContent += mailTemplate;
+        QString trains;
+        QString seatTypes;
+        for (int i = 0; i < ud->candidateInfo.passengers.size(); i++) {
+            mailContent += _("<tr>");
+            mailContent += _("<td>%1</td>").arg(ud->candidateInfo.passengers[i]);
+            mailContent += _("<td>%1</td>").arg(now.toString(_("yyyy-MM-dd hh:mm:ss")));
+            mailContent += _("<td>");
+            for (auto &trainDate : ud->candidateInfo.diffDateTrain) {
+                mailContent += trainDate.date + ("、");
+            }
+            mailContent += _("</td>");
+            for (auto &trainAtDate : ud->candidateInfo.diffDateTrain) {
+                for (auto &train : trainAtDate.train) {
+                    if (!trains.contains(train.trainCode))
+                        trains += train.trainCode + _("、");
+                }
+            }
+            mailContent += _("<td>%1</td>").arg(trains);
+            for (auto &seatType : ud->candidateInfo.allSeatType) {
+                QString s = seatTypeSubmtiCodeTransToDesc(seatType);
+                seatTypes += s + _("、");
+            }
+            mailContent += _("<td>%1</td>").arg(seatTypes);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.fromStationName);
+            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.toStationName);
+            mailContent += _("</tr>");
+        }
+        mailContent += "</table>"
+                       "<p>您收到此通知是因为您在<a href=\"https://www.yunying.org\">云映程序</a>配置了此邮箱，"
+                       "如您未使用<a href=\"https://www.yunying.org\">云映程序</a>进行过相关配置或未授权他人使用此邮箱，请忽略本邮件。</p>"
+                       "</body>"
+                       "</html>";
+        w->settingDialog->sendMail(mailContent);
+    }
 }
 
 void NetHelper::lineUptoPayConfirm(const QString &reserve_no)
 {
     UserData::instance()->candidateRunStatus = ESUBMITCANDIDATESUCCESS;
-    w->formatOutput(_("候补订单提交成功，候补订单号：%1，请尽快前往12306网站或12306手机APP找到待支付订单完成支付，"
-                      "超时订单将会被系统自动取消").arg(reserve_no));
+    QString msg = _("候补订单提交成功，候补订单号：%1，请尽快前往12306网站或12306手机APP找到待支付订单完成支付，"
+                    "超时订单将会被系统自动取消").arg(reserve_no);
+    w->formatOutput(msg);
     // htmlHref.lineUpPayConfirm
-    QDesktopServices::openUrl(QUrl(_(LINEUPTOPAYCONFIRM)));
+    //QDesktopServices::openUrl(QUrl(_(LINEUPTOPAYCONFIRM)));
     // 结束任务
+    UserData *ud = UserData::instance();
+    ud->lastRunSuccess = true;
+    sendCandidateMail();
+    w->settingDialog->sendWxNotify(msg);
     w->startOrStopGrabTicket();
+    if (ud->generalSetting.playMusic) {
+        w->startOrStopPlayMusic();
+    }
+}
+
+void NetHelper::sendWxNotify(const QString &sendKey, const QString &msg)
+{
+    QUrl url(_("https://sctapi.ftqq.com/") + sendKey + _(".send"));
+    ReqParam param;
+    param.put(_("title"), _("云映状态通知").toUtf8().toPercentEncoding());
+    param.put(_("desp"), msg.toUtf8().toPercentEncoding());
+    param.put(_("short"), _("您有一条需要关注的消息").toUtf8().toPercentEncoding());
+    post(url, param, &NetHelper::sendWxNotifyReply);
+}
+
+void NetHelper::sendWxNotifyReply(QNetworkReply *reply)
+{
+    QVariantMap varMap;
+    if (replyIsOk(reply, varMap) < 0) {
+        w->formatOutput(_("消息发送失败：未知原因"));
+        return;
+    }
+
+    w->settingDialog->sendWxNotifyReply(varMap);
+}
+
+void NetHelper::queryWxNotifyStatus(const QString &pushId, const QString &readKey)
+{
+    QUrl url(_("https://sctapi.ftqq.com/push?id=") + pushId + _("&readkey=") + readKey);
+    get(url, &NetHelper::queryWxNotifyStatusReply);
+}
+
+void NetHelper::queryWxNotifyStatusReply(QNetworkReply *reply)
+{
+    QVariantMap varMap;
+    if (replyIsOk(reply, varMap) < 0) {
+        w->formatOutput(_("消息发送失败：未知原因"));
+        return;
+    }
+    w->settingDialog->queryWxNotifyStatusReply(varMap);
 }
 
 NetHelper::~NetHelper()
 {
     delete nam;
+    delete capSnapTimer;
+    delete rttDelayTimer;
 }

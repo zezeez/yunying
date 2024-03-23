@@ -15,12 +15,15 @@
 #include <QString>
 #include <QProgressBar>
 #include <QDateEdit>
+#include <QMediaPlayer>
 #include "passengerdialog.h"
 #include "trainnodialog.h"
 #include "seattypedialog.h"
 #include "settingdialog.h"
 #include "logindialog.h"
 #include "seatdialog.h"
+#include "chart/barchart.h"
+#include "chart/linechart.h"
 
 namespace Ui {
 class MainWindow;
@@ -74,19 +77,28 @@ public:
     void commonSetting(QTabWidget *tab);
     void grabTicketSetting(QTabWidget *tab);
     void formatWithColorOutput(const QString &output, QColor color);
+    bool canAddNewTrain(const QString &trainTime);
     void processQueryTicketReply(QVariantMap &data);
     void queryTrainStopStation();
     void processStopStationReply(QVariantMap &data);
     void setStationNameCompleter(const QByteArray &nameText);
     void updateNetQualityStatus(int ms);
+    void enterGrabMode();
+    void exitGrabMode();
     void prepareGrabTicket(bool status);
+    bool promptBeforeStartGrab();
     void startOrStopGrabTicket();
     void doGrabTicket();
     void switchTableTicketShowType(bool showType);
     void switchTicketShowType();
     void loadStationName();
-    void canCandidate();
-    void chooseSeat();
+    void resetLoginDialog();
+    void showLoginDialog();
+    void showMainWindow();
+    void playMusic();
+    void stopPlayMusic();
+    void startOrStopPlayMusic();
+    void setMusicPath(const QString &path);
 
 private:
     Ui::MainWindow *ui;
@@ -94,6 +106,7 @@ private:
     QTextBrowser *browser;
     QTextBrowser *historyInfoBrower;
     QMenu *rightMenu;
+
 public:
     LoginDialog *loginDialog;
     SettingDialog *settingDialog;
@@ -120,8 +133,18 @@ public:
     QPushButton *grabTicketPb;
     int grabTicketInterval;
     QTimer *doGrabTicketTimer;
+    QTimer *fixedTimeGrabTimer;
     QTimer *updateProgressBarTimer;
     QVector<QString> queryStopStionArgs;
+
+    QMediaPlayer *player;
+    QPushButton *playMusicPb;
+    QTimer *stopMusicTimer;
+
+    QTimer *skipMaintenanceTimer;
+
+    BarChartView *statChart;
+    LineChartView *delayChart;
 };
 
 #endif // MAINWINDOW_H

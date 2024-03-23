@@ -15,14 +15,14 @@ public:
     int strictTravelTimePrioSelectTrain(const QVariantMap &stationMap);
     int strictStartTimePrioSelectTrain(const QVariantMap &stationMap);
     QVector<std::pair<int, int>> trainSelectSeatType(int trainNoIdx);
-    std::pair<QString, QString> generateSubmitTicketInfo(QVector<std::pair<int, int>> &seatVec, QVector<QChar> &submitSeatType);
+    std::pair<QString, QString> generateSubmitTicketInfo(QVector<std::pair<int, int>> &seatVec, QVector<QPair<QString, QChar>> &submitSeatType);
     void initTrainTicketInfo();
     void sufficientSeatTypePrioSelectSeatType(const QVector<int> &selectSeatType,
                                                         QVector<std::pair<int, int>> &seatVec, int trainNoIdx, int passengerSize);
     void strictPriceLowToHighSelectSeatType(const QVector<int> &selectSeatType, QVector<int> priceLowToHigh,
                                                       QVector<std::pair<int, int>> &seatVec, int trainNoIdx, int passengerSize);
-    int analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QChar> &submitSeatType, const QVariantMap &stationMap);
-    bool mayCandidate(const QVariantMap &stationMap);
+    int analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QPair<QString, QChar>> &submitSeatType, const QVariantMap &stationMap);
+    bool mayCandidate(const QVariantMap &stationMap, const QString &date);
 
 private:
     QVector<QStringList> &trainInfoVec;

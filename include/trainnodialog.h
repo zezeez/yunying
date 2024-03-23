@@ -25,6 +25,7 @@ public:
     void clearUnSelectedTrain();
     const QList<QString> &getSelectedTrainList() const;
     const QSet<QString> &getSelectedTrainSet() const;
+    const QSet<QString> &getAllTrainSet() const;
     void setSelectedTrainNo();
     void setUnselectedTrainNo();
     void moveUpTrain();
@@ -32,12 +33,7 @@ public:
     void enterGrabTicketMode();
     void exitGrabTicketMode();
 
-public Q_SLOTS:
-    void show();
-    void hide();
-
 public:
-    QDialog *dialog;
     QListWidget *selected;
     QListWidget *unSelected;
     QPushButton *addSelectedPb;

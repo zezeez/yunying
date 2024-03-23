@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui network
+QT       += core gui network multimedia charts
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -29,6 +29,8 @@ INCLUDEPATH += include
 
 SOURCES += \
     src/analysis.cpp \
+    src/chart/barchart.cpp \
+    src/chart/linechart.cpp \
     src/frozentrain.cpp \
     src/loginconf.cpp \
     src/logindialog.cpp \
@@ -39,17 +41,19 @@ SOURCES += \
     src/seattypedialog.cpp \
     src/settingdialog.cpp \
     src/sliderwidget.cpp \
-    src/sm4.cpp \
     src/sysutil.cpp \
     src/trainnodialog.cpp \
     src/userdata.cpp \
     src/nethelper.cpp \
     src/completeredit.cpp \
-    lib/smtp/src/smtp.cpp
+    lib/smtp/src/smtp.cpp \
+    lib/sm4/src/sm4.cpp
 
 HEADERS += \
     include/12306.h \
     include/analysis.h \
+    include/chart/barchart.h \
+    include/chart/linechart.h \
     include/cookieapi.h \
     include/frozentrain.h \
     include/icondelegate.h \
@@ -62,12 +66,12 @@ HEADERS += \
     include/seattypedialog.h \
     include/settingdialog.h \
     include/sliderwidget.h \
-    include/sm4.h \
     include/sysutil.h \
     include/trainnodialog.h \
     include/userdata.h \
     include/completeedit.h \
-    lib/smtp/include/smtp.h
+    lib/smtp/include/smtp.h \
+    lib/sm4/include/sm4.h
 
 FORMS += \
         mainwindow.ui

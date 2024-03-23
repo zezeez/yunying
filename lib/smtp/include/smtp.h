@@ -70,7 +70,7 @@ enum SMTPSTATUS {
     EERROR = -1,
     //EINIT = 0,
     EHELO = 0,
-    EAUTH,
+    ETOAUTH,
     EMAILFROM,
     ERCPTO,
     EDATA,

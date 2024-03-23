@@ -194,11 +194,16 @@ struct SubmitTicketInfo {
     QString secretStr;
     QString ypDetailInfo;
     QString date;
+    QString startSTationName;
     QString fromStationName;
     QString fromStationCode;
     QString toStationName;
     QString toStationCode;
-    QVector<QChar> submitSeatType;
+    QString endStationName;
+    QString fromTime;
+    QString toTime;
+    QString travelTime;
+    QVector<QPair<QString, QChar>> submitSeatType;
     bool isAsync;
     bool submitSuccess;
     QString passengerTicketInfo;
@@ -241,7 +246,6 @@ struct TicketSetting {
 };
 
 struct CandidateSetting {
-    QString secretList;
     int selectedEndCandidateMinutes;
     int endCandidateMinutes;
     bool isCandidate;
@@ -257,6 +261,26 @@ struct CandidateSetting {
     int extraCandidateEndHour;
 };
 
+struct CandidateTrainInfo
+{
+    QString trainCode;
+    QString secretStr;
+    QVector<QChar> seatType;
+};
+
+struct CandidateDateInfo {
+    QVector<struct CandidateTrainInfo> train;
+    QString date;
+    bool hasUpdate;
+};
+
+struct CandidateInfo {
+    QVector<struct CandidateDateInfo> diffDateTrain;
+    QString submitSecretStr;
+    QVector<QString> passengers;
+    QVector<QChar> allSeatType;
+};
+
 struct EmailNofity {
     bool notifyEmailEnable;
     QString senderEmailAddress;
@@ -269,8 +293,15 @@ struct EmailNofity {
     bool advanceMode;
 };
 
+struct WxNotify {
+    bool enable;
+    bool keepSendKey;
+    QString sendKey;
+};
+
 struct NotifySetting {
     struct EmailNofity emailNotify;
+    struct WxNotify wxNotify;
 };
 
 struct GrabTicketSetting {
@@ -282,17 +313,29 @@ struct GrabTicketSetting {
     struct TrainPrioSetting trainPrio;
     struct TicketSetting ticketSetting;
     bool autoFrozenTrain;
+    bool fixedTimeGrab;
+    bool acceptNewTrain;
     int frozenSeconds;
-    int grabTicketDate;
+    QString grabTicketDate;
     int grabTicketHour;
     int grabTicketMinute;
     int grabTicketSecond;
     enum GRABTICKETMODEE grabMode;
     int grabIntervalSeconds;
+    int newTrainStartHour;
+    int newTrainEndHour;
 };
 
 struct GeneralSetting {
     bool autoSyncServerTime;
+    bool playMusic;
+    bool stopAfterTime;
+    bool customMusic;
+//#ifdef HAS_CDN
+    bool cdnEnable;
+//#endif
+    QString musicPath;
+    QString customMusicPath;
 };
 
 class UserData
@@ -381,6 +424,7 @@ public:
     struct GeneralSetting generalSetting;
     struct SubmitTicketInfo submitTicketInfo;
     struct CandidateSetting candidateSetting;
+    struct CandidateInfo candidateInfo;
     struct NotifySetting notifySetting;
     QVector<struct PassengerInfo> passenger;  // 旅客信息
     QVector<struct PassengerInfo> djPassenger;  //  受让人旅客信息
@@ -389,6 +433,7 @@ public:
     enum RUNSTATUSE runStatus;
     enum RUNSTATUSE lastRunStatus;
     enum RUNSTATUSE candidateRunStatus;
+    bool lastRunSuccess;
 
     void readXBEL();
     QXmlStreamReader rxml;

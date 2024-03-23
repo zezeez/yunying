@@ -20,22 +20,10 @@ extern MainWindow *w;
 SeatTypeDialog::SeatTypeDialog(QWidget *parent) :
     QDialog(parent)
 {
-    dialog = new QDialog(parent);
 }
 
 SeatTypeDialog::~SeatTypeDialog()
 {
-    delete dialog;
-}
-
-void SeatTypeDialog::show()
-{
-    dialog->show();
-}
-
-void SeatTypeDialog::hide()
-{
-    dialog->hide();
 }
 
 void SeatTypeDialog::setUp()
@@ -270,8 +258,8 @@ void SeatTypeDialog::setUp()
 
     outvLayout->addLayout(hLayout1);
 
-    dialog->setLayout(outvLayout);
-    dialog->setWindowTitle(tr("选择席别"));
+    setLayout(outvLayout);
+    setWindowTitle(tr("选择席别"));
     //seatTypeDialog->resize(400, 400);
     //dialog->exec();
     QTimer *timer = new QTimer;
@@ -353,6 +341,7 @@ void SeatTypeDialog::setUnselectedSeatType()
 void SeatTypeDialog::clearSelectedSeatType()
 {
     if (unSelected->count()) {
+        unSelected->setCurrentRow(unSelected->count() - 1);
         while (unSelected->count()) {
             QListWidgetItem *item = unSelected->takeItem(unSelected->currentRow());
             selected->addItem(item);
@@ -365,6 +354,7 @@ void SeatTypeDialog::clearSelectedSeatType()
 void SeatTypeDialog::clearUnSelectedSeatType()
 {
     if (selected->count()) {
+        selected->setCurrentRow(selected->count() - 1);
         while (selected->count()) {
             QListWidgetItem *item = selected->takeItem(selected->currentRow());
             unSelected->addItem(item);

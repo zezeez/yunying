@@ -334,11 +334,11 @@ SmtpEmail::SmtpEmail(QObject *parent) : SmtpBase(parent)
     };*/
     nextStatus[EHELO] = [this]() {
         // 向服务器发送ehlo
-        enum SMTPSTATUS status = emailQueue.empty() ? EHELO : EAUTH;
+        enum SMTPSTATUS status = emailQueue.empty() ? EHELO : ETOAUTH;
         std::string command = emailQueue.empty() ? "" : "ehlo EmailService\r\n";
         return std::pair<enum SMTPSTATUS, std::string>(status, command);
     };
-    nextStatus[EAUTH] = [this]() {
+    nextStatus[ETOAUTH] = [this]() {
         if (emailQueue.empty()) {
             return std::pair<enum SMTPSTATUS, std::string>(EHELO, "");
         }

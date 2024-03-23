@@ -17,22 +17,10 @@ extern MainWindow *w;
 PassengerDialog::PassengerDialog(QWidget *parent) :
     QDialog(parent)
 {
-    dialog = new QDialog(parent);
 }
 
 PassengerDialog::~PassengerDialog()
 {
-    delete dialog;
-}
-
-void PassengerDialog::show()
-{
-    dialog->show();
-}
-
-void PassengerDialog::hide()
-{
-    dialog->hide();
 }
 
 void PassengerDialog::setUp()
@@ -167,8 +155,8 @@ void PassengerDialog::setUp()
 
     outvLayout->addLayout(hLayout1);
 
-    dialog->setLayout(outvLayout);
-    dialog->setWindowTitle(tr("选择乘车人"));
+    setLayout(outvLayout);
+    setWindowTitle(tr("选择乘车人"));
     //passengerDialog->resize(350, 200);
     //dialog->exec();
 }
@@ -304,6 +292,7 @@ void PassengerDialog::setUnselectedPassenger()
 void PassengerDialog::clearUnSelectedPassenger()
 {
     if (unSelected->count()) {
+        unSelected->setCurrentRow(unSelected->count() - 1);
         while (unSelected->count()) {
             QListWidgetItem *item = unSelected->takeItem(unSelected->currentRow());
             selected->addItem(item);
@@ -316,6 +305,7 @@ void PassengerDialog::clearUnSelectedPassenger()
 void PassengerDialog::clearSelectedPassenger()
 {
     if (selected->count()) {
+        selected->setCurrentRow(selected->count() - 1);
         while (selected->count()) {
             QListWidgetItem *item = selected->takeItem(selected->currentRow());
             unSelected->addItem(item);

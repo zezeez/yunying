@@ -25,12 +25,7 @@ public:
     void exitGrabTicketMode();
     QString seatTypeCodeToName(QChar code);
 
-public Q_SLOTS:
-    void show();
-    void hide();
-
 public:
-    QDialog *dialog;
     QListWidget *selected;
     QListWidget *unSelected;
     QPushButton *addSelectedPb;

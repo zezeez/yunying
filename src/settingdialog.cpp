@@ -16,29 +16,23 @@
 #include <QLineEdit>
 #include <QButtonGroup>
 #include <QTimer>
+#include <QFileDialog>
+#include <QJsonDocument>
+#include "mainwindow.h"
+#include "nethelper.h"
 
 #define _ QStringLiteral
+
+extern MainWindow *w;
 
 SettingDialog::SettingDialog(QWidget *parent) :
     QDialog(parent)
 {
-    dialog = new QDialog(parent);
     trainTypeShowVec.resize(128);
 }
 
 SettingDialog::~SettingDialog()
 {
-    delete dialog;
-}
-
-void SettingDialog::show()
-{
-    dialog->show();
-}
-
-void SettingDialog::hide()
-{
-    dialog->hide();
 }
 
 void SettingDialog::commonSetting(QTabWidget *tab)
@@ -136,7 +130,111 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     groupBox->setLayout(vLayout1);
 
     vLayout->addWidget(groupBox);
+
+    QCheckBox *promptMusicCb = new QCheckBox(tr("提示音乐"));
+    QComboBox *musicListCb = new QComboBox;
+    QStringList musicList = {
+                             _("预设1"),
+        _("预设2"),
+        _("预设3"),
+        _("预设4"),
+        _("预设5"),
+        _("预设6"),
+        _("预设7"),
+        _("预设8"),
+        _("预设9"),
+        _("预设10")
+    };
+    musicListCb->addItems(musicList);
+    connect(musicListCb, &QComboBox::currentIndexChanged, this, [] (int index) {
+        UserData *ud = UserData::instance();
+        ud->generalSetting.musicPath = _("music/preset%1.mp3").arg(index);
+        QSettings setting;
+        setting.setValue(_("setting/music_index"), index);
+    });
+
+    QCheckBox *customCb = new QCheckBox(tr("自定义"));
+    QLineEdit *customLe = new QLineEdit;
+    QPushButton *customPb = new QPushButton(tr("选择..."));
+    QCheckBox *stopPlayCB = new QCheckBox(tr("10分钟后停止播放"));
+    connect(stopPlayCB, &QCheckBox::toggled, this, [] (bool checked) {
+        UserData *ud = UserData::instance();
+        ud->generalSetting.stopAfterTime = checked;
+        QSettings setting;
+        setting.setValue(_("setting/stop_after_time"), checked);
+    });
+    connect(promptMusicCb, &QCheckBox::toggled, this, [=] (bool checked) {
+        UserData *ud = UserData::instance();
+        ud->generalSetting.playMusic = checked;
+        musicListCb->setEnabled(checked);
+        stopPlayCB->setEnabled(checked);
+        customCb->setEnabled(checked);
+        customPb->setEnabled(checked && customCb->isChecked());
+        QSettings setting;
+        setting.setValue(_("setting/play_music"), checked);
+    });
+
+    checked = setting.value(_("setting/play_music"), true).value<bool>();
+    promptMusicCb->setChecked(checked);
+    checked = setting.value(_("setting/stop_after_time"), true).value<bool>();
+    stopPlayCB->setChecked(checked);
+    int index = setting.value(_("setting/music_index"), 0).value<int>();
+    musicListCb->setCurrentIndex(index);
+    UserData *ud = UserData::instance();
+    ud->generalSetting.musicPath = _("music/preset%1.mp3").arg(index);
+
+    QHBoxLayout *hlayout = new QHBoxLayout;
+    hlayout->addWidget(promptMusicCb);
+    hlayout->addWidget(musicListCb);
+    hlayout->addStretch();
+    vLayout->addLayout(hlayout);
+
+    connect(customCb, &QCheckBox::toggled, this, [=] (bool checked) {
+        UserData *ud = UserData::instance();
+        ud->generalSetting.customMusic = checked;
+        customPb->setEnabled(checked && promptMusicCb->isChecked());
+        QSettings setting;
+        setting.setValue(_("setting/custom_music"), checked);
+    });
+    connect(customPb, &QPushButton::clicked, this, [=] () {
+        UserData *ud = UserData::instance();
+        QString fileName = QFileDialog::getOpenFileName(this,
+                                                tr("打开文件"), "./", tr("*.mp3 *.wav"));
+        customLe->setText(fileName);
+        ud->generalSetting.customMusicPath = fileName;
+        QSettings setting;
+        setting.setValue(_("setting/custom_music_path"), fileName);
+    });
+    customLe->setEnabled(false);
+    checked = setting.value(_("setting/custom_music"), false).value<bool>();
+    customCb->setChecked(checked);
+    QString text = setting.value(_("setting/custom_music_path"), _("")).value<QString>();
+    customLe->setText(text);
+    ud->generalSetting.customMusicPath = text;
+
+    hlayout = new QHBoxLayout;
+    hlayout->addWidget(customCb);
+    hlayout->addWidget(customLe);
+    hlayout->addWidget(customPb);
+    hlayout->addStretch();
+    vLayout->addLayout(hlayout);
+    vLayout->addWidget(stopPlayCB);
+
+//#ifdef HAS_CDN
+    cdnCb = new QCheckBox(tr("启用CDN"));
+    connect(cdnCb, &QCheckBox::toggled, this, [=] (bool checked) {
+        UserData *ud = UserData::instance();
+        ud->generalSetting.cdnEnable = checked;
+        QSettings setting;
+        setting.setValue(_("setting/cdn_enable"), checked);
+    });
+    checked = setting.value(_("setting/cdn_enable"), false).value<bool>();
+    cdnCb->setChecked(checked);
+    vLayout->addWidget(cdnCb);
+//#endif
+
     vLayout->addStretch();
+
     widget->setLayout(vLayout);
 
     tab->addTab(widget, tr("一般设置"));
@@ -149,6 +247,7 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     //QVBoxLayout *vLayout = new QVBoxLayout;
     QSettings setting;
     QStringList dates;
+    UserData *ud = UserData::instance();
     //QGridLayout *gLayout = new QGridLayout;
     QCheckBox *grabTicketCB = new QCheckBox(tr("定时抢票"));
     QComboBox *cbox = new QComboBox;
@@ -157,18 +256,19 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
         dates.append(curDate.addDays(i).toString(_("MM-dd")));
     }
     cbox->addItems(dates);
-    int index = setting.value(_("grab_setting/grab_ticket_date"), 0).value<int>();
-    connect(cbox, &QComboBox::currentIndexChanged, this, [] (int index) {
+    QString text = setting.value(_("grab_setting/grab_ticket_date"), 0).value<QString>();
+    connect(cbox, &QComboBox::currentTextChanged, this, [] (QString text) {
         UserData *ud = UserData::instance();
-        ud->grabSetting.grabTicketDate = index;
+        ud->grabSetting.grabTicketDate = text;
         QSettings setting;
-        setting.setValue(_("grab_setting/grab_ticket_date"), index);
+        setting.setValue(_("grab_setting/grab_ticket_date"), text);
     });
-    cbox->setCurrentIndex(index);
+    cbox->setCurrentText(text);
     QTimeEdit *timeEdit = new QTimeEdit;
     connect(grabTicketCB, &QCheckBox::toggled, this, [=] (bool checked) {
         timeEdit->setEnabled(checked);
         cbox->setEnabled(checked);
+        UserData::instance()->grabSetting.fixedTimeGrab = checked;
         QSettings setting;
         setting.setValue(_("grab_setting/grab_fixed_time"), checked);
     });
@@ -183,14 +283,19 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     QString timeStr = setting.value(_("grab_setting/grab_ticket_time"), _("")).value<QString>();
     QTime setTime = QTime::fromString(timeStr, _("hh:mm:ss"));
     QTime curTime = QTime::currentTime();
-    if (!setTime.isValid() || (index == 0 && setTime < curTime)) {
+    if (!setTime.isValid()) {
         timeEdit->setTime(curTime.addSecs(3600));
     } else {
-        timeEdit->setTime(setTime);
+        if (cbox->currentIndex() == 0 && setTime < curTime) {
+            cbox->setCurrentIndex(1);
+        } else {
+            timeEdit->setTime(setTime);
+        }
     }
 
     bool checked = setting.value(_("grab_setting/grab_fixed_time"), false).value<bool>();
     grabTicketCB->setChecked(checked);
+    ud->grabSetting.fixedTimeGrab = checked;
     cbox->setEnabled(checked);
     timeEdit->setEnabled(checked);
     timeEdit->setDisplayFormat(_("hh:mm:ss"));
@@ -235,17 +340,17 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     hlayout->addStretch();
     QGroupBox *gbox = new QGroupBox(tr("刷票模式"));
     QVBoxLayout *vlayout1 = new QVBoxLayout;
-    QRadioButton *rb = new QRadioButton(tr("短间隔模式(3秒)"));
-    connect(rb, &QRadioButton::toggled, this, [] (bool checked) {
+    shortRb = new QRadioButton(tr("默认模式(3秒)"));
+    connect(shortRb, &QRadioButton::toggled, this, [] (bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.grabMode = ESHORTINTERVAL;
         QSettings setting;
         setting.setValue(_("grab_setting/grab_short"), checked);
     });
     checked = setting.value(_("grab_setting/grab_short"), false).value<bool>();
-    rb->setChecked(checked);
-    vlayout1->addWidget(rb);
-    rb = new QRadioButton(tr("长间隔模式(30秒)"));
+    shortRb->setChecked(checked);
+    vlayout1->addWidget(shortRb);
+    /*rb = new QRadioButton(tr("长间隔模式(30秒)"));
     connect(rb, &QRadioButton::toggled, this, [] (bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.grabMode = ELONGINTERVAL;
@@ -264,30 +369,30 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     });
     checked = setting.value(_("grab_setting/grab_short_long"), true).value<bool>();
     rb->setChecked(checked);
-    vlayout1->addWidget(rb);
-    rb = new QRadioButton(tr("随机模式(2-6之间随机)"));
-    connect(rb, &QRadioButton::toggled, this, [] (bool checked) {
+    vlayout1->addWidget(rb);*/
+    randomRb = new QRadioButton(tr("随机模式(2-6之间随机)"));
+    connect(randomRb, &QRadioButton::toggled, this, [] (bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.grabMode = ERANDOM;
         QSettings setting;
         setting.setValue(_("grab_setting/grab_random"), checked);
     });
     checked = setting.value(_("grab_setting/grab_random"), false).value<bool>();
-    rb->setChecked(checked);
-    vlayout1->addWidget(rb);
-    rb = new QRadioButton(tr("定时抢票模式(间隔1秒直到有订单提交或超过30秒之后切换默认模式)"));
-    connect(rb, &QRadioButton::toggled, this, [] (bool checked) {
+    randomRb->setChecked(checked);
+    vlayout1->addWidget(randomRb);
+    fixTimeRb = new QRadioButton(tr("定时抢票模式(间隔1秒直到有订单提交或超过30秒之后切换默认模式)"));
+    connect(fixTimeRb, &QRadioButton::toggled, this, [] (bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.grabMode = EFIXEDTIME;
         QSettings setting;
         setting.setValue(_("grab_setting/grab_fixed_time"), checked);
     });
     checked = setting.value(_("grab_setting/grab_fixed_time"), false).value<bool>();
-    rb->setChecked(checked);
-    vlayout1->addWidget(rb);
+    fixTimeRb->setChecked(checked);
+    vlayout1->addWidget(fixTimeRb);
     sbox = new QSpinBox;
-    rb = new QRadioButton(tr("自定义(秒)"));
-    connect(rb, &QRadioButton::toggled, this, [sbox] (bool checked) {
+    customRb = new QRadioButton(tr("自定义(秒)"));
+    connect(customRb, &QRadioButton::toggled, this, [sbox] (bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.grabMode = ECUSTOM;
         QSettings setting;
@@ -295,8 +400,8 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
         sbox->setEnabled(checked);
     });
     checked = setting.value(_("grab_setting/grab_custom"), false).value<bool>();
-    rb->setChecked(checked);
-    vlayout1->addWidget(rb);
+    customRb->setChecked(checked);
+    //vlayout1->addWidget(rb);
 
     connect(sbox, &QSpinBox::valueChanged, this, [] (int value) {
         UserData *ud = UserData::instance();
@@ -310,7 +415,61 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     sbox->setValue(secs);
     sbox->setEnabled(checked);
     QHBoxLayout *hlayout1 = new QHBoxLayout;
+    hlayout1->addWidget(customRb);
     hlayout1->addWidget(sbox);
+    hlayout1->addStretch();
+    vlayout1->addLayout(hlayout1);
+    QCheckBox *acceptNewTrainCB = new QCheckBox(tr("接受增开列车"));
+
+    QSpinBox *sbox1 = new QSpinBox;
+    sbox1->setMinimum(0);
+    sbox1->setMaximum(23);
+    label = new QLabel(tr("点 - "));
+    QSpinBox *sbox2 = new QSpinBox;
+    sbox2->setMinimum(1);
+    sbox2->setMaximum(24);
+    QLabel *label2 = new QLabel(tr("点"));
+    connect(sbox1, &QSpinBox::valueChanged, this, [sbox2] (int value) {
+        QSettings setting;
+        UserData *ud = UserData::instance();
+        if (value >= ud->grabSetting.newTrainEndHour) {
+            sbox2->setValue(value + 1);
+            setting.setValue(_("grab_setting/new_train_end_hour"), value + 1);
+        }
+        ud->grabSetting.newTrainStartHour = value;
+        setting.setValue(_("grab_setting/extra_start_hour"), value);
+    });
+    int hour = setting.value(_("grab_setting/new_train_start_hour"), 0).value<int>();
+    sbox1->setValue(hour);
+    connect(sbox2, &QSpinBox::valueChanged, this, [sbox1] (int value) {
+        QSettings setting;
+        UserData *ud = UserData::instance();
+        if (value <= ud->grabSetting.newTrainStartHour) {
+            sbox1->setValue(value - 1);
+            setting.setValue(_("grab_setting/new_train_start_hour"), value - 1);
+        }
+        ud->grabSetting.newTrainEndHour = value;
+        setting.setValue(_("grab_setting/new_train_end_hour"), value);
+    });
+    hour = setting.value(_("grab_setting/new_train_end_hour"), 24).value<int>();
+    sbox2->setValue(hour);
+
+    connect(acceptNewTrainCB, &QCheckBox::toggled, this, [=] (bool checked) {
+        UserData::instance()->candidateSetting.acceptNewTrain = checked;
+        sbox1->setEnabled(checked);
+        sbox2->setEnabled(checked);
+        QSettings setting;
+        setting.setValue(_("grab_setting/accept_new_train"), checked);
+    });
+    checked = setting.value(_("grab_setting/accept_new_train"), false).value<bool>();
+    acceptNewTrainCB->setChecked(checked);
+
+    hlayout1 = new QHBoxLayout;
+    hlayout1->addWidget(acceptNewTrainCB);
+    hlayout1->addWidget(sbox1);
+    hlayout1->addWidget(label);
+    hlayout1->addWidget(sbox2);
+    hlayout1->addWidget(label2);
     hlayout1->addStretch();
     vlayout1->addLayout(hlayout1);
     gbox->setLayout(vlayout1);
@@ -355,47 +514,44 @@ void SettingDialog::candidateSetting(QTabWidget *tab)
     noSeatCB->setChecked(checked);
     QCheckBox *acceptNewTrainCB = new QCheckBox(tr("接受增开列车"));
 
-    QTimeEdit *timeEdit2 = new QTimeEdit;
-    timeEdit2->setDisplayFormat(_("hh"));
-    timeEdit2->setMaximumTime(QTime(22, 0, 0));
+    QSpinBox *sbox1 = new QSpinBox;
+    sbox1->setMinimum(0);
+    sbox1->setMaximum(23);
     QLabel *label = new QLabel(tr("点 - "));
-    QTimeEdit *timeEdit3 = new QTimeEdit;
-    timeEdit3->setDisplayFormat(_("hh"));
-    timeEdit3->setMaximumTime(QTime(24, 0, 0));
-    timeEdit3->setMinimumTime(QTime(1, 0, 0));
-    timeEdit3->setTime(QTime(23, 0));
+    QSpinBox *sbox2 = new QSpinBox;
+    sbox2->setMinimum(1);
+    sbox2->setMaximum(24);
     QLabel *label2 = new QLabel(tr("点"));
-    connect(timeEdit2, &QTimeEdit::timeChanged, this, [=] (QTime time) {
-        int h = time.hour();
+    connect(sbox1, &QSpinBox::valueChanged, this, [sbox2] (int value) {
         QSettings setting;
         UserData *ud = UserData::instance();
-        if (h >= ud->candidateSetting.extraCandidateEndHour) {
-            timeEdit3->setTime(QTime(h + 1, 0, 0));
-            setting.setValue(_("candidate_setting/extra_end_hour"), h + 1);
+        if (value >= ud->candidateSetting.extraCandidateEndHour) {
+            sbox2->setValue(value + 1);
+            setting.setValue(_("candidate_setting/extra_end_hour"), value + 1);
         }
-        ud->candidateSetting.extraCandidateStartHour = h;
-        setting.setValue(_("candidate_setting/extra_start_hour"), h);
+        ud->candidateSetting.extraCandidateStartHour = value;
+        setting.setValue(_("candidate_setting/extra_start_hour"), value);
     });
-    int hour = setting.value(_("candidate_setting/extra_start_hour"), 0).value<int>();
-    timeEdit2->setTime(QTime(hour, 0, 0));
-    connect(timeEdit3, &QTimeEdit::timeChanged, this, [=] (QTime time) {
-        int h = time.hour();
+
+    connect(sbox2, &QSpinBox::valueChanged, this, [sbox1] (int value) {
         QSettings setting;
         UserData *ud = UserData::instance();
-        if (h <= ud->candidateSetting.extraCandidateStartHour) {
-            timeEdit2->setTime(QTime(h - 1, 0, 0));
-            setting.setValue(_("candidate_setting/extran_start_hour"), h - 1);
+        if (value <= ud->candidateSetting.extraCandidateStartHour) {
+            sbox1->setValue(value - 1);
+            setting.setValue(_("candidate_setting/extra_start_hour"), value - 1);
         }
-        ud->candidateSetting.extraCandidateEndHour = h;
-        setting.setValue(_("candidate_setting/extra_end_hour"), h);
+        ud->candidateSetting.extraCandidateEndHour = value;
+        setting.setValue(_("candidate_setting/extra_end_hour"), value);
     });
-    hour = setting.value(_("candidate_setting/extra_end_hour"), 0).value<int>();
-    timeEdit3->setTime(QTime(hour, 0, 0));
+    int hour = setting.value(_("candidate_setting/extra_end_hour"), 1).value<int>();
+    sbox2->setValue(hour);
+    hour = setting.value(_("candidate_setting/extra_start_hour"), 0).value<int>();
+    sbox1->setValue(hour);
 
     connect(acceptNewTrainCB, &QCheckBox::toggled, this, [=] (bool checked) {
         UserData::instance()->candidateSetting.acceptNewTrain = checked;
-        timeEdit2->setEnabled(checked && candidateCB->isChecked());
-        timeEdit3->setEnabled(checked && candidateCB->isChecked());
+        sbox1->setEnabled(checked && candidateCB->isChecked());
+        sbox2->setEnabled(checked && candidateCB->isChecked());
         QSettings setting;
         setting.setValue(_("candidate_setting/accept_new_train"), checked);
     });
@@ -462,8 +618,8 @@ void SettingDialog::candidateSetting(QTabWidget *tab)
         prioCandidateCB->setEnabled(checked);
         noSeatCB->setEnabled(checked);
         acceptNewTrainCB->setEnabled(checked);
-        timeEdit2->setEnabled(checked && acceptNewTrainCB->isChecked());
-        timeEdit3->setEnabled(checked && acceptNewTrainCB->isChecked());
+        sbox1->setEnabled(checked && acceptNewTrainCB->isChecked());
+        sbox2->setEnabled(checked && acceptNewTrainCB->isChecked());
         extraCandidateDateCB->setEnabled(checked);
         extraCandidateDateCB2->setEnabled(checked);
         extraCandidateDate->setEnabled(checked && extraCandidateDateCB->isChecked());
@@ -480,8 +636,8 @@ void SettingDialog::candidateSetting(QTabWidget *tab)
     checked = setting.value(_("candidate_setting/accept_new_train"), false).value<bool>();
     acceptNewTrainCB->setChecked(checked);
 
-    timeEdit2->setEnabled(candidateChecked && checked);
-    timeEdit3->setEnabled(candidateChecked && checked);
+    sbox1->setEnabled(candidateChecked && checked);
+    sbox2->setEnabled(candidateChecked && checked);
 
     extraCandidateDateCB->setEnabled(candidateChecked);
     extraCandidateDateCB2->setEnabled(candidateChecked);
@@ -504,9 +660,9 @@ void SettingDialog::candidateSetting(QTabWidget *tab)
     vlayout->addWidget(noSeatCB);
     vlayout->addWidget(acceptNewTrainCB);
     QHBoxLayout *hlayout2 = new QHBoxLayout;
-    hlayout2->addWidget(timeEdit2);
+    hlayout2->addWidget(sbox1);
     hlayout2->addWidget(label);
-    hlayout2->addWidget(timeEdit3);
+    hlayout2->addWidget(sbox2);
     hlayout2->addWidget(label2);
     hlayout2->addStretch();
     vlayout->addLayout(hlayout2);
@@ -571,7 +727,95 @@ void SettingDialog::candidateSetting(QTabWidget *tab)
     tab->addTab(widget, tr("候补设置"));
 }
 
-void SettingDialog::sendTestEmail()
+void SettingDialog::sendMailWork(const QString &mailMsg)
+{
+    UserData *ud = UserData::instance();
+    if (!smtpEmail) {
+        smtpEmail = new SimpleSmtpEmail;
+        smtpEmail->setHost(ud->notifySetting.emailNotify.emailServer);
+        smtpEmail->setPort(ud->notifySetting.emailNotify.emailPort);
+        smtpEmail->setSsl(ud->notifySetting.emailNotify.enableSsl);
+        connect(smtpEmail, &SmtpEmail::mailStateNotify, this, [this] (enum MAILSTATE state, QString error, QString errorDetail) {
+            if (state == EMAILSUCCESS) {
+                emailTestMsgLa->setText(_("邮件通知发送成功"));
+                w->formatOutput(_("邮件通知发送成功"));
+            } else {
+                emailTestMsgLa->setText(_("邮件通知发送失败，错误详情%1").arg(error));
+                if (!errorDetail.isEmpty()) {
+                    w->formatOutput(errorDetail);
+                }
+            }
+
+            //smtpEmail->disconnect();
+            if (emailTestTimer) {
+                emailTestTimer->stop();
+                delete emailTestTimer;
+                emailTestTimer = nullptr;
+            }
+            smtpEmail->deleteLater();
+            //delete smtpEmail;
+            smtpEmail = nullptr;
+        });
+    }
+    if (!emailTestTimer) {
+        emailTestTimer = new QTimer;
+        emailTestTimer->setInterval(15 * 1000);
+        connect(emailTestTimer, &QTimer::timeout, this, [=] () {
+            emailTestMsgLa->setText(_("邮件通知发送失败，请求超时"));
+            if (smtpEmail) {
+                smtpEmail->disconnect();
+            }
+            emailTestTimer->stop();
+            //delete emailTestTimer;
+            emailTestTimer->deleteLater();
+            emailTestTimer = nullptr;
+            delete smtpEmail;
+            smtpEmail = nullptr;
+        });
+        emailTestTimer->start();
+    }
+    emailTestMsgLa->clear();
+
+    std::vector<std::string> cclist;
+    std::vector<std::string> recevier;
+    for (auto &rcv : ud->notifySetting.emailNotify.receiverEmailAddress) {
+        recevier.push_back(rcv.toStdString());
+    }
+    smtpEmail->sendEmail(ud->notifySetting.emailNotify.senderEmailAddress.toStdString(),
+                         ud->notifySetting.emailNotify.authCode.toStdString(),
+                         recevier,
+                         _("云映状态通知").toStdString(),
+                         mailMsg.toStdString(),
+                         cclist,
+                         cclist);
+}
+
+void SettingDialog::sendMail(const QString &mailMsg)
+{
+    UserData *ud = UserData::instance();
+    if (!ud->notifySetting.emailNotify.notifyEmailEnable) {
+        return;
+    }
+    if (ud->notifySetting.emailNotify.senderEmailAddress.isEmpty()) {
+        w->formatOutput(_("发件人未填写，请先填写发件人"));
+        return;
+    }
+    if (ud->notifySetting.emailNotify.authCode.isEmpty()) {
+        w->formatOutput(_("授权码未填写，请先填写授权码"));
+        return;
+    }
+    if (ud->notifySetting.emailNotify.receiverEmailAddress.isEmpty()) {
+        w->formatOutput(_("收件人未填写，请先填写收件人"));
+        return;
+    }
+    if (ud->notifySetting.emailNotify.emailServer.isEmpty()) {
+        w->formatOutput(_("smtp域名未填写，请先填写smtp域名"));
+        return;
+    }
+    sendMailWork(mailMsg);
+}
+
+void SettingDialog::sendTestMail()
 {
     UserData *ud = UserData::instance();
     if (!ud->notifySetting.emailNotify.notifyEmailEnable) {
@@ -594,60 +838,9 @@ void SettingDialog::sendTestEmail()
         emailTestMsgLa->setText(_("smtp域名未填写，请先填写smtp域名"));
         return;
     }
-    if (!smtpEmail) {
-        smtpEmail = new SimpleSmtpEmail;
-        smtpEmail->setHost(ud->notifySetting.emailNotify.emailServer);
-        smtpEmail->setPort(ud->notifySetting.emailNotify.emailPort);
-        smtpEmail->setSsl(ud->notifySetting.emailNotify.enableSsl);
-        connect(smtpEmail, &SmtpEmail::mailStateNotify, this, [this] (enum MAILSTATE state, QString error) {
-            if (state == EMAILSUCCESS) {
-                emailTestMsgLa->setText(_("邮件发送成功"));
-            } else {
-                emailTestMsgLa->setText(_("邮件发送失败，错误详情%1").arg(error));
-            }
-            //smtpEmail->disconnect();
-            if (emailTestTimer) {
-                emailTestTimer->stop();
-                delete emailTestTimer;
-                emailTestTimer = nullptr;
-            }
-            smtpEmail->deleteLater();
-            //delete smtpEmail;
-            smtpEmail = nullptr;
-        });
-    }
-    if (!emailTestTimer) {
-        emailTestTimer = new QTimer;
-        emailTestTimer->setInterval(15 * 1000);
-        connect(emailTestTimer, &QTimer::timeout, this, [=] () {
-            emailTestMsgLa->setText(_("邮件发送失败，请求超时"));
-            if (smtpEmail) {
-                smtpEmail->disconnect();
-            }
-            emailTestTimer->stop();
-            //delete emailTestTimer;
-            emailTestTimer->deleteLater();
-            emailTestTimer = nullptr;
-            delete smtpEmail;
-            smtpEmail = nullptr;
-        });
-        emailTestTimer->start();
-    }
-    emailTestMsgLa->setText(_(""));
-    std::string msg = _("这是一条来自云映的测试通知消息，如果您收到此消息，说明您已成功配置。"
-                    "若您未进行过相关操作可能是别人误填了您的邮箱地址，请忽略本消息").toStdString();
-    std::vector<std::string> cclist;
-    std::vector<std::string> recevier;
-    for (auto &rcv : ud->notifySetting.emailNotify.receiverEmailAddress) {
-        recevier.push_back(rcv.toStdString());
-    }
-    smtpEmail->sendEmail(ud->notifySetting.emailNotify.senderEmailAddress.toStdString(),
-                         ud->notifySetting.emailNotify.authCode.toStdString(),
-                         recevier,
-                         _("云映运行状态通知").toStdString(),
-                         msg,
-                         cclist,
-                         cclist);
+    QString mailMsg = _("这是一条来自云映的测试通知消息，如果您收到此消息，说明您已成功配置。"
+                        "若您未进行过相关操作可能是别人误填了您的邮箱地址，请忽略本消息");
+    sendMailWork(mailMsg);
 }
 
 void SettingDialog::notifySetting(QTabWidget *tab)
@@ -695,6 +888,7 @@ void SettingDialog::notifySetting(QTabWidget *tab)
     QLineEdit *recevierLe = new QLineEdit;
     QLineEdit *domainLe = new QLineEdit;
     recevierLe->setPlaceholderText(tr("需要@xxx后缀，多个收件人以，分隔"));
+    recevierLe->setToolTip(_("收件人可以填发件人自己"));
     QComboBox *domainCB = new QComboBox;
     domainCB->addItems(domailName);
     connect(domainCB, &QComboBox::currentTextChanged, this, [domainCB] (QString text) {
@@ -909,8 +1103,8 @@ void SettingDialog::notifySetting(QTabWidget *tab)
     senderLe->setText(text);
     QHBoxLayout *hlayout1 = new QHBoxLayout;
     QPushButton *testMail = new QPushButton(tr("测试发送"));
-    connect(testMail, &QPushButton::clicked, this, &SettingDialog::sendTestEmail);
-    testMail->setToolTip(tr("您稍后将收到主题为'云映运行状态通知'的邮件"));
+    connect(testMail, &QPushButton::clicked, this, &SettingDialog::sendTestMail);
+    testMail->setToolTip(tr("您稍后将收到主题为'云映状态通知'的邮件"));
     hlayout1->addStretch();
     hlayout1->addWidget(testMail);
     hlayout1->addStretch();
@@ -925,6 +1119,184 @@ void SettingDialog::notifySetting(QTabWidget *tab)
     tab->addTab(widget, tr("邮件通知"));
 }
 
+void SettingDialog::sendWxNotify(const QString &msg)
+{
+    UserData *ud = UserData::instance();
+    if (ud->notifySetting.wxNotify.enable &&
+        !ud->notifySetting.wxNotify.sendKey.isEmpty()) {
+        NetHelper::instance()->sendWxNotify(ud->notifySetting.wxNotify.sendKey, msg);
+    }
+}
+
+void SettingDialog::sendWxNotifyReply(QVariantMap &varMap)
+{
+    qDebug() << varMap;
+    QVariantMap data = varMap[_("data")].toMap();
+    int errNum = data[_("errno")].toInt();
+    if (errNum != 0) {
+        QString errStr = data[_("error")].toString();
+        w->formatOutput(_("消息发送失败：") + errStr);
+        wxNotifyLabel->setText(_("消息发送失败：") + errStr);
+        return;
+    }
+    notifyPushId = data[_("pushid")].toString();
+    notifyReadKey = data[_("readkey")].toString();
+    if (!notifyStatusTimer) {
+        notifyStatusTimer = new QTimer;
+        notifyStatusTimer->setInterval(3000);
+        connect(notifyStatusTimer, &QTimer::timeout, this, [this] () {
+            queryWxNotifyStatus();
+            notifyStatusTimer->stop();
+            notifyStatusTimer->deleteLater();
+            notifyStatusTimer = nullptr;
+        });
+        notifyStatusTimer->start();
+    } else {
+        if (!notifyStatusTimer->isActive()) {
+            notifyStatusTimer->setInterval(3000);
+            notifyStatusTimer->start();
+        }
+    }
+}
+
+void SettingDialog::queryWxNotifyStatus()
+{
+    NetHelper::instance()->queryWxNotifyStatus(notifyPushId, notifyReadKey);
+}
+
+void SettingDialog::queryWxNotifyStatusReply(QVariantMap &varMap)
+{
+    qDebug() << varMap;
+    QVariantMap data = varMap[_("data")].toMap();
+    int errNum = data[_("errno")].toInt();
+    if (errNum != 0) {
+        QString errStr = data[_("error")].toString();
+        w->formatOutput(_("消息发送失败：") + errStr);
+        wxNotifyLabel->setText(_("消息发送失败：") + errStr);
+        return;
+    }
+    QByteArray wxStatus = data[_("wxstatus")].toByteArray();
+    if (!wxStatus.isEmpty()) {
+        QJsonParseError error;
+        QJsonDocument doc = QJsonDocument::fromJson(wxStatus, &error);
+        if (error.error != QJsonParseError::NoError || doc.isNull()) {
+            w->formatOutput(_("无法获取发送状态：无效数据"));
+            wxNotifyLabel->setText(_("无法获取发送状态：无效数据"));
+            return;
+        } else {
+            QVariantMap wxData = doc.toVariant().toMap();
+            int errCode = wxData[_("errcode")].toInt();
+            if (errCode != 0) {
+                QString errMsg = wxData[_("errmsg")].toString();
+                if (!errMsg.isEmpty()) {
+                    w->formatOutput(errMsg);
+                    wxNotifyLabel->setText(errMsg);
+                } else {
+                    w->formatOutput(_("无法获取发送状态：未知错误"));
+                    wxNotifyLabel->setText(_("无法获取发送状态：未知错误"));
+                }
+            } else {
+                w->formatOutput(_("微信通知消息发送成功"));
+                wxNotifyLabel->setText(_("微信通知消息发送成功"));
+            }
+        }
+    }
+}
+
+void SettingDialog::wxNotifySetting(QTabWidget *tab)
+{
+    QCheckBox *enableCB = new QCheckBox(tr("启用"));
+    QLabel *msgla = new QLabel;
+
+    msgla->setText(tr("调用server酱消息接口，可发企业微信应用、手机\n"
+                      "客户端、群机器人、微信服务号消息，请点击下方链\n"
+                      "接扫码关注获得SendKey，并将SendKey填入下方的\n"
+                      "输入框中。如失效请重新获取SendKey"));
+    QLabel *linkla = new QLabel;
+    linkla->setText(_("<a href=\"https://sct.ftqq.com/login\">点我</a>"));
+    linkla->setOpenExternalLinks(true);
+    QCheckBox *keepSendKeyCb = new QCheckBox(tr("记住SendKey"));
+    QLineEdit *sendKeyLe = new QLineEdit;
+    connect(sendKeyLe, &QLineEdit::textChanged, this, [sendKeyLe] () {
+        UserData *ud = UserData::instance();
+        ud->notifySetting.wxNotify.sendKey = sendKeyLe->text().trimmed();
+        if (ud->notifySetting.wxNotify.keepSendKey) {
+            QSettings setting;
+            setting.setValue(_("wx_notify/send_key"),
+                             ud->notifySetting.wxNotify.sendKey);
+        }
+    });
+    sendKeyLe->setPlaceholderText(tr("这里粘贴SendKey"));
+    QLabel *la = new QLabel(tr("SendKey"));
+    QHBoxLayout *hlayout = new QHBoxLayout;
+    hlayout->addWidget(la);
+    hlayout->addWidget(sendKeyLe);
+    hlayout->addStretch();
+
+    connect(keepSendKeyCb, &QCheckBox::toggled, this, [] (bool checked) {
+        UserData *ud = UserData::instance();
+        ud->notifySetting.wxNotify.keepSendKey = checked;
+        QSettings setting;
+        setting.setValue(_("wx_notify/keep_send_key"), checked);
+    });
+    QHBoxLayout *outhlayout = new QHBoxLayout;
+    QVBoxLayout *vlayout = new QVBoxLayout;
+    vlayout->addWidget(enableCB);
+    vlayout->addWidget(msgla);
+    vlayout->addWidget(linkla);
+    vlayout->addLayout(hlayout);
+
+    hlayout = new QHBoxLayout;
+    hlayout->addWidget(keepSendKeyCb);
+    hlayout->addStretch();
+    vlayout->addLayout(hlayout);
+    wxNotifyLabel = new QLabel;
+    wxNotifyLabel->setStyleSheet(_("color: red"));
+    notifyStatusTimer = nullptr;
+    QPushButton *testPb = new QPushButton(tr("测试"));
+    connect(testPb, &QPushButton::clicked, this, [this] () {
+        QString msg = _("云映测试消息，收到此消息说明通知配置成功");
+        sendWxNotify(msg);
+        wxNotifyLabel->clear();
+    });
+    connect(enableCB, &QCheckBox::toggled, this, [=] (bool checked) {
+        UserData *ud = UserData::instance();
+        ud->notifySetting.wxNotify.enable = checked;
+        QSettings setting;
+        setting.setValue(_("wx_notify/enable"), checked);
+        sendKeyLe->setEnabled(checked);
+        keepSendKeyCb->setEnabled(checked);
+        testPb->setEnabled(checked);
+    });
+    QSettings setting;
+    bool checked = setting.value(_("wx_notify/keep_send_key"), true).value<bool>();
+    keepSendKeyCb->setChecked(checked);
+    if (checked) {
+        QString text = setting.value(_("wx_notify/send_key"), _("")).value<QString>();
+        sendKeyLe->setText(text);
+    }
+    checked = setting.value(_("wx_notify/enable"), false).value<bool>();
+    enableCB->setChecked(checked);
+    keepSendKeyCb->setEnabled(checked);
+    sendKeyLe->setEnabled(checked);
+    testPb->setEnabled(checked);
+
+    vlayout->addWidget(wxNotifyLabel);
+
+    hlayout = new QHBoxLayout;
+    hlayout->addStretch();
+    hlayout->addWidget(testPb);
+    hlayout->addStretch();
+    vlayout->addLayout(hlayout);
+    vlayout->addStretch();
+    outhlayout->addLayout(vlayout);
+    outhlayout->addStretch();
+
+    QWidget *widget = new QWidget;
+    widget->setLayout(outhlayout);
+    tab->addTab(widget, tr("微信通知"));
+}
+
 void SettingDialog::setUp()
 {
     QTabWidget *tabWidget = new QTabWidget;
@@ -934,9 +1306,54 @@ void SettingDialog::setUp()
     grabTicketSetting(tabWidget);
     candidateSetting(tabWidget);
     notifySetting(tabWidget);
+    wxNotifySetting(tabWidget);
 
     vLayout->addWidget(tabWidget);
-    dialog->setLayout(vLayout);
+    setLayout(vLayout);
     //settingDialog->resize(800, 600);
     //dialog->exec();
+}
+
+bool SettingDialog::isShortMode()
+{
+    return shortRb->isChecked();
+}
+
+bool SettingDialog::isRandomMode()
+{
+    return randomRb->isChecked();
+}
+
+bool SettingDialog::isFixedTimeMode()
+{
+    return fixTimeRb->isChecked();
+}
+
+bool SettingDialog::isCustomMode()
+{
+    return customRb->isChecked();
+}
+
+bool SettingDialog::setQueryTicketMode(enum GRABTICKETMODEE mode)
+{
+    if (customRb->isChecked()) {
+        return false;
+    }
+    switch (mode) {
+    case ESHORTINTERVAL:
+        shortRb->setChecked(true);
+        break;
+    case ERANDOM:
+        randomRb->setChecked(true);
+        break;
+    case EFIXEDTIME:
+        fixTimeRb->setChecked(true);
+        break;
+    case ECUSTOM:
+        customRb->setChecked(true);
+        break;
+    default:
+        break;
+    }
+    return true;
 }

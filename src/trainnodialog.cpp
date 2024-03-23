@@ -20,22 +20,10 @@ extern MainWindow *w;
 TrainNoDialog::TrainNoDialog(QWidget *parent) :
     QDialog(parent)
 {
-    dialog = new QDialog(parent);
 }
 
 TrainNoDialog::~TrainNoDialog()
 {
-    delete dialog;
-}
-
-void TrainNoDialog::show()
-{
-    dialog->show();
-}
-
-void TrainNoDialog::hide()
-{
-    dialog->hide();
 }
 
 void TrainNoDialog::setUp(QStandardItemModel *model)
@@ -127,9 +115,11 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
     QVBoxLayout *outvLayout = new QVBoxLayout;
     outvLayout->addLayout(hLayout);
 
+    font.setPointSize(10);
     QVBoxLayout *vLayout4 = new QVBoxLayout;
     QButtonGroup *btnGroup = new QButtonGroup;
-    QRadioButton *rb = new QRadioButton(QStringLiteral("按选中车次的顺序提交"));
+    QRadioButton *rb = new QRadioButton(tr("按选中车次的顺序提交"));
+    rb->setFont(font);
     connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.strictTrainPrio = checked;
@@ -142,7 +132,8 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
     rb->setFont(font);
     btnGroup->addButton(rb);
     vLayout4->addWidget(rb);
-    rb = new QRadioButton(QStringLiteral("按列车发车时间顺序提交"));
+    rb = new QRadioButton(tr("按列车发车时间顺序提交"));
+    rb->setFont(font);
     connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.strictStartTimePrio = checked;
@@ -154,7 +145,7 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
     rb->setFont(font);
     btnGroup->addButton(rb);
     vLayout4->addWidget(rb);
-    rb = new QRadioButton(QStringLiteral("行程时间短的车次优先提交"));
+    rb = new QRadioButton(tr("行程时间短的车次优先提交"));
     connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.travelTimeShortPrio = checked;
@@ -166,7 +157,7 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
     rb->setFont(font);
     btnGroup->addButton(rb);
     vLayout4->addWidget(rb);
-    rb = new QRadioButton(QStringLiteral("余票充足的车次优先提交"));
+    rb = new QRadioButton(tr("余票充足的车次优先提交"));
     connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.sufficientTicketPrio = checked;
@@ -182,7 +173,7 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
 
     QVBoxLayout *vLayout5 = new QVBoxLayout;
 
-    rb = new QRadioButton(QStringLiteral("G开头的优先提交"));
+    rb = new QRadioButton(tr("G开头的优先提交"));
     connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.preferGPrio = checked;
@@ -194,7 +185,7 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
     rb->setFont(font);
     //btnGroup->addButton(rb);
     vLayout5->addWidget(rb);
-    rb = new QRadioButton(QStringLiteral("D开头的优先提交"));
+    rb = new QRadioButton(tr("D开头的优先提交"));
     connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.preferDPrio = checked;
@@ -206,7 +197,7 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
     rb->setFont(font);
     //btnGroup->addButton(rb);
     vLayout5->addWidget(rb);
-    rb = new QRadioButton(QStringLiteral("以下时间段优先提交"));
+    rb = new QRadioButton(tr("以下时间段优先提交"));
     connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.preferTimeRangePrio = checked;
@@ -297,8 +288,8 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
 
     outvLayout->addLayout(hLayout1);
 
-    dialog->setLayout(outvLayout);
-    dialog->setWindowTitle(tr("选择车次"));
+    setLayout(outvLayout);
+    setWindowTitle(tr("选择车次"));
     //trainNoDialog->resize(400, 400);
     //dialog->exec();
 }
@@ -325,7 +316,7 @@ void TrainNoDialog::addTrain(const QString &trainInfo, const QString &display)
     if (!trainInfo.isEmpty()) {
         if (!hasTrain(trainInfo)) {
             QListWidgetItem *item = new QListWidgetItem(unSelected);
-            item->setData(Qt::DisplayRole, QObject::tr("%1").arg(display));
+            item->setData(Qt::DisplayRole, display);
             unSelected->setCurrentItem(item);
             addSelectedPb->setEnabled(true);
             trainSet.insert(trainInfo);
@@ -380,6 +371,7 @@ void TrainNoDialog::removeSelectedTrain(const QString &trainInfo)
 void TrainNoDialog::addSelectedTrainAll()
 {
     if (unSelected->count()) {
+        unSelected->setCurrentRow(unSelected->count() - 1);
         while (unSelected->count()) {
             QListWidgetItem *item = unSelected->takeItem(unSelected->currentRow());
             selected->addItem(item);
@@ -394,6 +386,7 @@ void TrainNoDialog::addSelectedTrainAll()
 void TrainNoDialog::clearSelectedTrain()
 {
     if (selected->count()) {
+        selected->setCurrentRow(selected->count() - 1);
         while (selected->count()) {
             QListWidgetItem *item = selected->takeItem(selected->currentRow());
             unSelected->addItem(item);
@@ -408,6 +401,7 @@ void TrainNoDialog::clearSelectedTrain()
 void TrainNoDialog::clearUnSelectedTrain()
 {
     if (unSelected->count()) {
+        unSelected->setCurrentRow(unSelected->count() - 1);
         while (unSelected->count()) {
             QListWidgetItem *item = unSelected->takeItem(unSelected->currentRow());
             delete item;
@@ -442,6 +436,11 @@ const QList<QString> &TrainNoDialog::getSelectedTrainList() const
 const QSet<QString> &TrainNoDialog::getSelectedTrainSet() const
 {
     return selectedTrainSet;
+}
+
+const QSet<QString> &TrainNoDialog::getAllTrainSet() const
+{
+    return trainSet;
 }
 
 void TrainNoDialog::setSelectedTrainNo()

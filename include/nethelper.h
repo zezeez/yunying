@@ -14,21 +14,7 @@
 
 class QNetworkReply;
 
-enum NETREQUESTTYPEENUM {
-    EGETVARIFICATIONCODE = 1,
-    EDOVARIFICATION,
-    ELOGIN,
-    EQUERYTICKET,
-    EGETSTATIONNAMETXT,
-    EPASSPORTUAMTK,
-    EPASSPORTUAMTKCLIENT,
-    EQUERYLOGINSTATUS,
-    EGETPASSENGERINFO,
-    EPASSENGERINITDC,
-    ECHECKUSER,
-    ESUBMITORDERREQUEST,
-    ECHECKORDERINFO,
-};
+
 
 class ReqParam
 {
@@ -45,16 +31,32 @@ class NetHelper : public QObject
 {
     Q_OBJECT
 public:
+    enum NETHELPERSTAT {
+        ESUBMIT = 0,
+        ESUBMITFAILED,
+        ECANDIDATE,
+        ECANDIDATEFAILED,
+        ENETERR,
+        EBADREPLY,
+        ENETHELPERSTATMAX,
+    };
     ~NetHelper();
     static NetHelper *instance();
     typedef void (NetHelper::*replyCallBack)(QNetworkReply *);
+    inline void netStatInc(enum NETHELPERSTAT stat) {
+        Q_ASSERT(stat < ENETHELPERSTATMAX);
+        netStatSample[stat]++;
+    }
     void getCookieHeader(QNetworkReply *reply);
     void setCookieHeader(const QUrl &url, QNetworkRequest &request);
     void setHeader(const QUrl &url, QNetworkRequest &request);
     void post(const QUrl &url, ReqParam &param, replyCallBack rcb);
     void post(const QUrl &url, ReqParam &param, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
     void get(const QUrl &url, replyCallBack rcb);
+#ifdef HAS_CDN
+    void post(const QUrl &url, ReqParam &param, const QString &ip, NetHelper::replyCallBack rcb);
     void get(const QUrl &url, const QString &ip, replyCallBack rcb);
+#endif
     void get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
     void ignoreReply(QNetworkReply *reply);
     void initLoginCookie();
@@ -79,6 +81,7 @@ public:
     void loginSuccess();
     void createQrCode();
     void createQrCodeReply(QNetworkReply *reply);
+    void checkQrCode(const QString &uuid);
     void checkQrCodeReply(QNetworkReply *reply);
     void sendSmsRequest(const QString &idCardNumTail);
     void sendSmsRequestReply(QNetworkReply *reply);
@@ -128,8 +131,8 @@ public:
     void candidateTrainReply(QNetworkReply *reply);
     void showCandidateWarn(const QString &face_check_code, bool is_show_qrcode);
     void handlecandidateError();
-    void candidateEntry(QList<QPair<QString, QChar>> &candidateSeatType);
-    void chechFace(QList<QPair<QString, QChar>> &candidateSeatType);
+    void candidateEntry(const struct CandidateDateInfo &dInfo);
+    void chechFace(const struct CandidateDateInfo &dInfo);
     void checkFaceReply(QNetworkReply *reply);
     void submitCandidateOrderRequest();
     void submitCandidateOrderRequestReply(QNetworkReply *reply);
@@ -142,7 +145,15 @@ public:
     void confirmHBReply(QNetworkReply *reply);
     void candidateQueryQueue();
     void candidateQueryQueueReply(QNetworkReply *reply);
+    void sendMail();
+    void sendCandidateMail();
     void lineUptoPayConfirm(const QString &reserve_no);
+
+    // 微信通知
+    void sendWxNotify(const QString &sendKey, const QString &msg);
+    void sendWxNotifyReply(QNetworkReply *reply);
+    void queryWxNotifyStatus(const QString &pushId, const QString &readKey);
+    void queryWxNotifyStatusReply(QNetworkReply *reply);
 
 signals:
     void finished(QNetworkReply *reply);
@@ -156,7 +167,6 @@ private:
 public:
     QNetworkAccessManager *nam;
     QMap<QNetworkReply *, replyCallBack> replyMap;
-    QTimer *qrCodeRefreshTimer;
     QTimer *queryOrderTimer;
     QTimer *queryCandidateTimer;
     int orderWaitTime;
@@ -166,11 +176,13 @@ public:
     QMap<QNetworkReply *, qint64> rttMap;
     QVector<int> rttSamples;
     FrozenTrain frozenTrain;
-    QVector<QPair<QString, bool>> candidateDiffDateStatus;
-    QVector<QList<QPair<QString, QChar>>> candiateDiffDateData;
     QString queryLeftTicketUrl;
     QString chooseSeat;
     bool canChooseSeats;
+    QVector<int> netStatSample;
+    QVector<QVector<int>> statSnapshot;
+    QTimer *capSnapTimer;
+    QTimer *rttDelayTimer;
 };
 
 
