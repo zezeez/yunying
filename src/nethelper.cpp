@@ -2447,9 +2447,9 @@ void NetHelper::queryWxNotifyStatusReply(QNetworkReply *reply)
 void NetHelper::checkUpdate()
 {
     QString platform;
-#ifdef Q_OS_WIN
+#ifdef defined(Q_OS_WIN)
     platform = "Windows";
-#elif Q_OS_MACOS
+#elif defined(Q_OS_MACOS)
     platform = "MACOS";
 #else
     platform = "Linux";

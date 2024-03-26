@@ -347,7 +347,7 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
         QSettings setting;
         setting.setValue(_("grab_setting/grab_short"), checked);
     });
-    checked = setting.value(_("grab_setting/grab_short"), false).value<bool>();
+    checked = setting.value(_("grab_setting/grab_short"), true).value<bool>();
     shortRb->setChecked(checked);
     vlayout1->addWidget(shortRb);
     /*rb = new QRadioButton(tr("长间隔模式(30秒)"));
@@ -380,7 +380,7 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     checked = setting.value(_("grab_setting/grab_random"), false).value<bool>();
     randomRb->setChecked(checked);
     vlayout1->addWidget(randomRb);
-    fixTimeRb = new QRadioButton(tr("定时抢票模式(间隔1秒直到有订单提交或超过30秒之后切换默认模式)"));
+    fixTimeRb = new QRadioButton(tr("定时抢票模式(间隔1秒超过30秒之后切换默认模式)"));
     connect(fixTimeRb, &QRadioButton::toggled, this, [] (bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.grabMode = EFIXEDTIME;
