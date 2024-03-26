@@ -35,7 +35,7 @@ void LoginDialog::setUp()
     passwdLe->setEchoMode(QLineEdit::Password);
     logoLabel = new QLabel;
     QPixmap pixmap;
-    pixmap.load(QStringLiteral(":/icon/images/logo@2x.png"));
+    pixmap.load(QStringLiteral(":/icon/images/yy.png"));
     logoLabel->setPixmap(pixmap);
     logoLabel->setAlignment(Qt::AlignCenter);
     QFont font;
@@ -128,7 +128,9 @@ void LoginDialog::setUp()
     loginPb->setText(tr("登陆"));
     connect(loginPb, &QPushButton::clicked, this, &LoginDialog::onLogin);
     hLayout = new QHBoxLayout;
+    hLayout->addStretch();
     hLayout->addWidget(loginPb);
+    hLayout->addStretch();
 
     bool checked = setting.value(_("login/keep_passwd"), false).value<bool>();
     if (checked) {

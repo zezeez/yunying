@@ -482,7 +482,7 @@ bool SmtpEmail::mailSuccess()
     return success;
 }
 
-SimpleSmtpEmail::SimpleSmtpEmail(QObject *parent) :
+SimpleSmtpEmail::SimpleSmtpEmail (QObject *parent) :
     SmtpEmail(parent)
 {
     sslSocket = new QSslSocket;

@@ -1,4 +1,5 @@
 #include "sysutil.h"
+#include "mainwindow.h"
 #include <QDateTime>
 #if defined(Q_OS_LINUX)
 #include <sys/time.h>
@@ -7,7 +8,9 @@
 #include <windows.h>
 #endif
 
+
 #define _ QStringLiteral
+extern MainWindow *w;
 
 SysUtil::SysUtil()
 {
@@ -44,6 +47,49 @@ int SysUtil::setSysTime(const QDateTime &newTime)
     qDebug() << strerror(errno);
 #elif defined(Q_OS_WIN)
     SYSTEMTIME st;
+    /*HANDLE hToken;
+    TOKEN_PRIVILEGES tkp;
+    //获得SE_SYSTEMTIME_NAME权限//
+    // Get a token for this process.
+    if (!OpenProcessToken(GetCurrentProcess(),
+                          TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+        return( FALSE );
+
+    //(获得SE_SYSTEMTIME_NAME权限，才可设置系统时间成功)
+    LookupPrivilegeValue(NULL, SE_SYSTEMTIME_NAME,
+                         &tkp.Privileges[0].Luid);
+
+    tkp.PrivilegeCount = 1;  // one privilege to set
+    tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    AdjustTokenPrivileges(hToken, FALSE, &tkp, sizeof(tkp),
+                          (PTOKEN_PRIVILEGES)NULL, 0);
+
+    qDebug() << GetLastError();
+    if (GetLastError() != ERROR_SUCCESS) {
+        CloseHandle(hToken);
+        return 0;
+    }*/
+
+    /*STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    LPWSTR s = {};
+    wsprintfW(s, L"123");
+    // Start the child process.
+    if( !CreateProcess( 0,   // No module name (use command line)
+                       s,        // Command line
+                       0,           // Process handle not inheritable
+                       0,           // Thread handle not inheritable
+                       FALSE,          // Set handle inheritance to FALSE
+                       0,              // No creation flags
+                       0,           // Use parent's environment block
+                       0,           // Use parent's starting directory
+                       &si,            // Pointer to STARTUPINFO structure
+                       &pi )           // Pointer to PROCESS_INFORMATION structure
+        )
+    {
+
+    }*/
     GetSystemTime(&st);
     st.wYear = newTime.date().year();
     st.wMonth = newTime.date().month();
@@ -54,6 +100,12 @@ int SysUtil::setSysTime(const QDateTime &newTime)
     st.wSecond = newTime.time().second();
     st.wMilliseconds = newTime.time().msec();
     ret = SetLocalTime(&st);
+    if (ret == 0) {
+        qDebug() << "set systime error: " << GetLastError();
+        w->formatOutput("设置系统时间失败");
+    }
+    qDebug() << "set local timer ret: " << ret;
+    //CloseHandle(hToken);
 #endif
     return ret;
 }
@@ -65,7 +117,7 @@ int SysUtil::setSysTime(const QString &newTime, int delay)
     int ret = -2;
     int last = newTime.lastIndexOf(' ');
     if (last != -1) {
-        toSetTime.fromString(newTime.first(last), _("ddd, dd MMM yyyy hh:mm:ss"));
+        toSetTime = QDateTime::fromString(newTime.first(last), _("ddd, dd MMM yyyy hh:mm:ss"));
         if (toSetTime.isValid()) {
             toSetTime = toSetTime.addSecs(28800).addMSecs(delay);  // add 8 hour and delay
             QDateTime curTime = QDateTime::currentDateTime();

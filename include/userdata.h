@@ -331,9 +331,9 @@ struct GeneralSetting {
     bool playMusic;
     bool stopAfterTime;
     bool customMusic;
-//#ifdef HAS_CDN
+#ifdef HAS_CDN
     bool cdnEnable;
-//#endif
+#endif
     QString musicPath;
     QString customMusicPath;
 };

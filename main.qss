@@ -206,12 +206,12 @@ QTabWidget::tab-bar {
 
 /* Style the tab using the tab sub-control. Note that
     it reads QTabBar _not_ QTabWidget */
-QTabBar::tab {
+/*QTabBar::tab {
     background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
                                 stop: 0 #E1E1E1, stop: 0.4 #DDDDDD,
                                 stop: 0.5 #D8D8D8, stop: 1.0 #D3D3D3);
     border: 2px solid #C4C4C3;
-    border-bottom-color: #C2C7CB; /* same as the pane color */
+    border-bottom-color: #C2C7CB;
     border-top-left-radius: 4px;
     border-top-right-radius: 4px;
     min-width: 8ex;
@@ -226,9 +226,9 @@ QTabBar::tab:selected, QTabBar::tab:hover {
 
 QTabBar::tab:selected {
     border-color: #9B9B9B;
-    border-bottom-color: #C2C7CB; /* same as pane color */
+    border-bottom-color: #C2C7CB;
 }
 
 QTabBar::tab:!selected {
-    margin-top: 2px; /* make non-selected tabs look smaller */
-}
+    margin-top: 2px;
+}*/

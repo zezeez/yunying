@@ -118,4 +118,6 @@
 #define SEATWUZUO2 "WZ"  // 无座
 #define SEATQITA 'H' // 其他
 
+#define THISVERSION "0.0.1"
+
 #endif // H12306_H

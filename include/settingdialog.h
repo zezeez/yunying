@@ -53,9 +53,9 @@ public:
     QString notifyReadKey;
     QTimer *notifyStatusTimer;
 
-//#ifdef HAS_CDN
+#ifdef HAS_CDN
     QCheckBox *cdnCb;
-//#endif
+#endif
 };
 
 #endif // SETTINGDIALOG_H

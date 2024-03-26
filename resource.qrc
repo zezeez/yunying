@@ -16,8 +16,6 @@
         <file>images/bad.png</file>
         <file>images/good.png</file>
         <file>images/perfect.png</file>
-        <file>images/fuxing.png</file>
-        <file>images/zineng.png</file>
         <file>images/fu.ico</file>
         <file>images/zi.ico</file>
         <file>images/start.ico</file>
@@ -26,6 +24,7 @@
         <file>images/dong.ico</file>
         <file>images/choosed_seat.png</file>
         <file>images/unchoosed_seat.png</file>
+        <file>images/yy.png</file>
     </qresource>
     <qresource prefix="/res">
         <file>main.qss</file>

@@ -157,58 +157,69 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
     rb->setFont(font);
     btnGroup->addButton(rb);
     vLayout4->addWidget(rb);
-    rb = new QRadioButton(tr("余票充足的车次优先提交"));
-    connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
+    QRadioButton *suffientRb = new QRadioButton(tr("余票充足的车次优先提交"));
+    QRadioButton *preferGRb = new QRadioButton(tr("G开头的优先提交"));
+    QRadioButton *preferDRb = new QRadioButton(tr("D开头的优先提交"));
+    QRadioButton *timeRangeRb = new QRadioButton(tr("以下时间段优先提交"));
+
+    connect(suffientRb, &QRadioButton::toggled, this, [=](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.sufficientTicketPrio = checked;
+        preferGRb->setEnabled(checked);
+        preferDRb->setEnabled(checked);
+        timeRangeRb->setEnabled(checked);
         QSettings setting;
         setting.setValue(_("train/sufficient_ticket"), checked);
     });
     checked = setting.value(_("train/sufficient_ticket"), true).value<bool>();
-    rb->setChecked(checked);
-    rb->setFont(font);
-    btnGroup->addButton(rb);
-    vLayout4->addWidget(rb);
+    suffientRb->setChecked(checked);
+    suffientRb->setFont(font);
+    preferGRb->setEnabled(checked);
+    preferDRb->setEnabled(checked);
+    timeRangeRb->setEnabled(checked);
+
+    btnGroup->addButton(suffientRb);
+    vLayout4->addWidget(suffientRb);
     //rb->setChecked(true);
 
     QVBoxLayout *vLayout5 = new QVBoxLayout;
 
-    rb = new QRadioButton(tr("G开头的优先提交"));
-    connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
+    connect(preferGRb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.preferGPrio = checked;
         QSettings setting;
         setting.setValue(_("train/prefer_g"), checked);
     });
     checked = setting.value(_("train/prefer_g"), false).value<bool>();
-    rb->setChecked(checked);
-    rb->setFont(font);
+    preferGRb->setChecked(checked);
+    preferGRb->setFont(font);
+
     //btnGroup->addButton(rb);
-    vLayout5->addWidget(rb);
-    rb = new QRadioButton(tr("D开头的优先提交"));
-    connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
+    vLayout5->addWidget(preferGRb);
+
+    connect(preferDRb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.preferDPrio = checked;
         QSettings setting;
         setting.setValue(_("train/prefer_d"), checked);
     });
     checked = setting.value(_("train/prefer_d"), false).value<bool>();
-    rb->setChecked(checked);
-    rb->setFont(font);
+    preferDRb->setChecked(checked);
+    preferDRb->setFont(font);
     //btnGroup->addButton(rb);
-    vLayout5->addWidget(rb);
-    rb = new QRadioButton(tr("以下时间段优先提交"));
-    connect(rb, &QRadioButton::toggled, this, [&](bool checked) {
+    vLayout5->addWidget(preferDRb);
+
+    connect(timeRangeRb, &QRadioButton::toggled, this, [&](bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.trainPrio.preferTimeRangePrio = checked;
         QSettings setting;
         setting.setValue(_("train/prefer_time_range"), checked);
     });
     checked = setting.value(_("train/prefer_time_range"), false).value<bool>();
-    rb->setChecked(checked);
-    rb->setFont(font);
+    timeRangeRb->setChecked(checked);
+    timeRangeRb->setFont(font);
     //btnGroup->addButton(rb);
-    vLayout5->addWidget(rb);
+    vLayout5->addWidget(timeRangeRb);
 
     vLayout4->setSpacing(1);
     vLayout5->setContentsMargins(2, 2, 2, 2);

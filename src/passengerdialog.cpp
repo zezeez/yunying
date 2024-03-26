@@ -163,7 +163,6 @@ void PassengerDialog::setUp()
 
 void PassengerDialog::refreshPassengerInfo()
 {
-    w->passengerDialog->hide();
     NetHelper::instance()->getPassengerInfo();
 }
 

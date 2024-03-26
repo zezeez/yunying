@@ -1,4 +1,4 @@
-#include "sm4.h"
+#include "lib/sm4/include/sm4.h"
 #include <QByteArray>
 #include <QString>
 #include <QDebug>

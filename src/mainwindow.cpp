@@ -34,6 +34,7 @@
 #include <QScrollArea>
 #include <QSettings>
 #include <QAudioOutput>
+#include <QDesktopServices>
 #include "icondelegate.h"
 #include "12306.h"
 
@@ -65,7 +66,7 @@ MainWindow::MainWindow(QWidget *parent) :
     hLayout->addWidget(label = new QLabel(tr("出发站: ")));
     label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     hLayout->addWidget(fromStationLe = new CompleteEdit);
-    fromStationLe->setPlaceholderText(_("简拼/全拼/汉字"));
+    fromStationLe->setPlaceholderText(_("简拼/全拼"));
     fromStationLe->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
     fromStationLe->setMaximumWidth(120);
     connect(fromStationLe, &CompleteEdit::editingFinished, this, &MainWindow::userStartStationChanged);
@@ -77,7 +78,7 @@ MainWindow::MainWindow(QWidget *parent) :
     hLayout->addWidget(label = new QLabel(tr("到达站: ")));
     label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     hLayout->addWidget(toStationLe = new CompleteEdit);
-    toStationLe->setPlaceholderText(_("简拼/全拼/汉字"));
+    toStationLe->setPlaceholderText(_("简拼/全拼"));
     toStationLe->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
     toStationLe->setMaximumWidth(120);
     connect(toStationLe, &CompleteEdit::editingFinished, this, &MainWindow::userEndStationChanged);
@@ -284,7 +285,6 @@ void MainWindow::createUiComponent()
     menu = menuBar()->addMenu(tr("&帮助"));
 
     action = new QAction(tr("关于..."), this);
-    action->setShortcut(QKeySequence::HelpContents);
     action->setStatusTip(tr("显示版本信息"));
     connect(action, &QAction::triggered, this, &MainWindow::about);
     menu->addAction(action);
@@ -750,17 +750,13 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         button = dynamic_cast<QPushButton *>(tableView->indexWidget(model->index(itemIdx, EREMARKCOL)));
         if (!button) {
             button = new QPushButton(tr("添加"));
-            if (ud->runStatus == EGRABTICKET) {
-                //button->setStyleSheet(QStringLiteral("QPushButton { background-color: #A9A9A9; color: #4F4F4F; }"));
-                button->setEnabled(false);
-            } else {
-                //button->setStyleSheet(QStringLiteral("QPushButton { color: #1C86EE; }"));
-                button->setProperty("fromStationName", fromStationName);
-                button->setProperty("toStationName", toStationName);
-                button->setProperty("trainCode", trainInfo[ESTATIONTRAINCODE]);
-                connect(button, &QPushButton::clicked, this, &MainWindow::addTrainToSelected);
-            }
+            connect(button, &QPushButton::clicked, this, &MainWindow::addTrainToSelected);
+        }
+        if (ud->runStatus != EIDLE) {
+            //button->setStyleSheet(QStringLiteral("QPushButton { background-color: #A9A9A9; color: #4F4F4F; }"));
+            button->setEnabled(false);
         } else {
+            //button->setStyleSheet(QStringLiteral("QPushButton { color: #1C86EE; }"));
             button->setProperty("fromStationName", fromStationName);
             button->setProperty("toStationName", toStationName);
             button->setProperty("trainCode", trainInfo[ESTATIONTRAINCODE]);
@@ -1045,6 +1041,34 @@ void MainWindow::processStopStationReply(QVariantMap &data)
     }
 }
 
+void MainWindow::enterGrabTicketMode()
+{
+    QStandardItemModel *model = static_cast<QStandardItemModel *>(tableView->model());
+    int rowcount = model->rowCount();
+    QPushButton *pb;
+
+    for (int i = 0; i < rowcount; i++) {
+        pb = static_cast<QPushButton *>(tableView->indexWidget(model->index(i, EREMARKCOL)));
+        if (pb) {
+            pb->setEnabled(false);
+        }
+    }
+}
+
+void MainWindow::exitGrabTicketMode()
+{
+    QStandardItemModel *model = static_cast<QStandardItemModel *>(tableView->model());
+    int rowcount = model->rowCount();
+    QPushButton *pb;
+
+    for (int i = 0; i < rowcount; i++) {
+        pb = static_cast<QPushButton *>(tableView->indexWidget(model->index(i, EREMARKCOL)));
+        if (pb) {
+            pb->setEnabled(true);
+        }
+    }
+}
+
 void MainWindow::enterGrabMode()
 {
     UserData *ud = UserData::instance();
@@ -1070,6 +1094,7 @@ void MainWindow::enterGrabMode()
     seatTypeDialog->enterGrabTicketMode();
     trainNoDialog->enterGrabTicketMode();
     tableView->setContextMenuPolicy(Qt::NoContextMenu);
+    enterGrabTicketMode();
 
     QDateTime cur = QDateTime::currentDateTime();
     QDateTime end;
@@ -1113,6 +1138,7 @@ void MainWindow::exitGrabMode()
     seatTypeDialog->exitGrabTicketMode();
     trainNoDialog->exitGrabTicketMode();
     tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    exitGrabTicketMode();
 
     if (skipMaintenanceTimer->isActive()) {
         skipMaintenanceTimer->stop();
@@ -1273,7 +1299,8 @@ void MainWindow::startOrStopGrabTicket()
 void MainWindow::doGrabTicket()
 {
     static int enterTimes;
-    if (UserData::instance()->runStatus == EGRABTICKET) {
+    UserData *ud = UserData::instance();
+    if (ud->runStatus == EGRABTICKET) {
         if (settingDialog->isShortMode()) {
             grabTicketInterval = 3000;
         } else if (settingDialog->isRandomMode()) {
@@ -1439,6 +1466,42 @@ void MainWindow::setMusicPath(const QString &path)
 {
     if (player) {
         player->setSource(path);
+    }
+}
+
+void MainWindow::checkUpdateReply(const QVariantMap &varMap)
+{
+    // status = 0 不需要更新
+    // status = 1 需要更新
+    // status = 2 错误
+    int status = varMap[_("status")].toInt();
+    QString msg;
+    QString url;
+    QVariantMap verInfo;
+    QMessageBox::StandardButton button;
+    switch (status) {
+    case 0:
+        break;
+    case 1:
+        verInfo = varMap[_("verInfo")].toMap();
+        msg += _("新版本可用，是否更新？\n");
+        msg += _("新版本：\n") + verInfo[_("version")].toString() + _("\n");
+        msg += _("当前版本：\n") + _(THISVERSION) + _("\n\n");
+        msg += _("更新日志：\n") + verInfo[_("changeLog")].toString() + _("\n");
+        button = QMessageBox::information(this, _("版本更新"), msg, QMessageBox::Yes | QMessageBox::No);
+        if (button == QMessageBox::Yes) {
+            url = verInfo[_("downloadUrl")].toString();
+            QDesktopServices::openUrl(QUrl(url));
+        }
+        break;
+    case 2:
+        msg = varMap[_("msg")].toString();
+        if (!msg.isEmpty()) {
+            formatOutput(_("检查更新失败，描述：") + msg);
+        }
+        break;
+    default:
+        break;
     }
 }
 
@@ -1707,9 +1770,6 @@ void MainWindow::formatOutput(const QString &output)
     textBuff += date.toString(Qt::ISODate);
     textBuff += QStringLiteral(" ") + output;
     browser->append(textBuff);
-    if (output == "用户未登录") {
-        qDebug() << output;
-    }
     UserData *ud = UserData::instance();
     if (ud->runStatus == ESUBMITORDER ||
         ud->candidateRunStatus == ESUBMITCANDIDATE) {
@@ -1731,11 +1791,10 @@ void MainWindow::formatWithColorOutput(const QString &output, const QColor color
 
 void MainWindow::about()
 {
-    QMessageBox::about(this, tr("About 12306 qt client"),
-                       tr("<h2>12306 qt client 0.1</h2>"
-                          "<p>Copyleft; 2019 Software Inc."
-                          "<p>12306 qt <a href=\"www.yunying.com\">云映</a> client is a client writen "
-                          "by third party and public under GPLv3."
+    QMessageBox::about(this, tr("关于云映"),
+                       tr("<h2>云映客户端版本" THISVERSION "</h2>"
+                          "<p>Copyleft; 2024 Software Inc.</p>"
+                          "<p>本程序<a href=\"www.xiapp.cn\">云映</a>仅限于个人使用，不可商用</p>"
                           ));
 }
 

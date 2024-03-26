@@ -99,9 +99,12 @@ public:
             isDong = type & (1 << 2);
             if (isFu) {
                 painter->save();
+                //QPixmap pixmap2 = fu.scaled(option.rect.width() / 2, option.rect.height(), Qt::KeepAspectRatio);
                 rect = option.rect;
                 rect.setLeft(rect.left());
+                //rect.setTopLeft(QPoint(rect.x(), rect.y() + (rect.height() - fu.height()) / 2));
                 rect.setWidth(fu.width());
+                //rect.setHeight(fu.height());
                 painter->drawPixmap(rect, fu);
                 painter->restore();
                 handled = true;

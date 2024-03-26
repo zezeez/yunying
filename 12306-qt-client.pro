@@ -16,6 +16,7 @@ TEMPLATE = app
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
+DEFINES += HAS_CDN
 
 # You can also make your code fail to compile if you use deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -29,6 +30,7 @@ INCLUDEPATH += include
 
 SOURCES += \
     src/analysis.cpp \
+    src/cdn.cpp \
     src/chart/barchart.cpp \
     src/chart/linechart.cpp \
     src/frozentrain.cpp \
@@ -52,6 +54,7 @@ SOURCES += \
 HEADERS += \
     include/12306.h \
     include/analysis.h \
+    include/cdn.h \
     include/chart/barchart.h \
     include/chart/linechart.h \
     include/cookieapi.h \
@@ -86,3 +89,11 @@ RESOURCES += \
 
 DISTFILES += \
     main.qss
+
+#win32 {
+#    LIBS += -lUser32
+#}
+#unix {
+#    LIBS += -lodbc
+#}
+

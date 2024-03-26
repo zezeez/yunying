@@ -5,7 +5,6 @@
 #include "lib/sm4/include/sm4.h"
 #include "loginconf.h"
 #include "logindialog.h"
-#include "completeedit.h"
 #include "sysutil.h"
 #include "analysis.h"
 #include "seatdialog.h"
@@ -147,20 +146,16 @@ void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack 
     QNetworkRequest request;
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
-    setHeader(url, request);
-    param.finish();
-    QNetworkReply *reply = nam->post(request, param.get().toUtf8());
-    replyMap.insert(reply, rcb);
-    QDateTime time = QDateTime::currentDateTime();
-    rttMap.insert(reply, time.toMSecsSinceEpoch());
-}
-
 #ifdef HAS_CDN
-void NetHelper::post(const QUrl &url, ReqParam &param, const QString &ip, NetHelper::replyCallBack rcb)
-{
-    QNetworkRequest request;
-    request.setUrl(url);
-    request.setTransferTimeout(REQUESTTIMEOUT);
+    UserData *ud = UserData::instance();
+    if (ud->generalSetting.cdnEnable) {
+        QString mainCdn = cdn.getMainCdn();
+        if (!mainCdn.isEmpty()) {
+            request.setIpAddress(mainCdn);
+        }
+    }
+    request.setPeerVerifyName(_("kyfw.12306.cn"));
+#endif
     setHeader(url, request);
     param.finish();
     QNetworkReply *reply = nam->post(request, param.get().toUtf8());
@@ -168,7 +163,6 @@ void NetHelper::post(const QUrl &url, ReqParam &param, const QString &ip, NetHel
     QDateTime time = QDateTime::currentDateTime();
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
-#endif
 
 void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
 {
@@ -187,34 +181,43 @@ void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack 
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
 
+void NetHelper::anyPost(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb)
+{
+    QNetworkRequest request;
+    request.setUrl(url);
+    request.setTransferTimeout(REQUESTTIMEOUT);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
+    request.setRawHeader("User-Agent", USERAGENT);
+    param.finish();
+    QNetworkReply *reply = nam->post(request, param.get().toUtf8());
+    replyMap.insert(reply, rcb);
+    QDateTime time = QDateTime::currentDateTime();
+    rttMap.insert(reply, time.toMSecsSinceEpoch());
+}
+
 void NetHelper::get(const QUrl &url, replyCallBack rcb)
 {
     QNetworkRequest request;
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
     //request.setPeerVerifyName("kyfw.12306.cn");
-    setHeader(url, request);
-    QNetworkReply *reply = nam->get(request);
-    replyMap.insert(reply, rcb);
-    QDateTime time = QDateTime::currentDateTime();
-    rttMap.insert(reply, time.toMSecsSinceEpoch());
-}
-
 #ifdef HAS_CDN
-void NetHelper::get(const QUrl &url, const QString &ip, replyCallBack rcb)
-{
-    QNetworkRequest request;
-    request.setUrl(url);
-    request.setTransferTimeout(REQUESTTIMEOUT);
-    request.setPeerVerifyName("kyfw.12306.cn");
-    request.setIpAddress(ip);
+    UserData *ud = UserData::instance();
+    if (ud->generalSetting.cdnEnable) {
+        QString h = cdn.getNextCdn();
+        if (!h.isEmpty()) {
+            request.setIpAddress(h);
+        }
+    }
+    request.setPeerVerifyName(_("kyfw.12306.cn"));
+#endif
+    qDebug() << request.ipAddress();
     setHeader(url, request);
     QNetworkReply *reply = nam->get(request);
     replyMap.insert(reply, rcb);
     QDateTime time = QDateTime::currentDateTime();
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
-#endif
 
 void NetHelper::get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
 {
@@ -226,6 +229,19 @@ void NetHelper::get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString,
     for (it = headers.cbegin(); it != headers.cend(); ++it) {
         request.setRawHeader(it->first.toLatin1(), it->second.toLatin1());
     }
+    QNetworkReply *reply = nam->get(request);
+    replyMap.insert(reply, rcb);
+    QDateTime time = QDateTime::currentDateTime();
+    rttMap.insert(reply, time.toMSecsSinceEpoch());
+}
+
+void NetHelper::anyGet(const QUrl &url, replyCallBack rcb)
+{
+    QNetworkRequest request;
+    request.setUrl(url);
+    request.setTransferTimeout(REQUESTTIMEOUT);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
+    request.setRawHeader("User-Agent", USERAGENT);
     QNetworkReply *reply = nam->get(request);
     replyMap.insert(reply, rcb);
     QDateTime time = QDateTime::currentDateTime();
@@ -631,6 +647,12 @@ void NetHelper::loginSuccess()
     w->showMainWindow();
     w->showStatusBarMessage(_("当前用户：%1").arg(UserData::instance()->getUserLoginInfo().account));
     getPassengerInfo();
+#ifdef HAS_CDN
+    UserData *ud = UserData::instance();
+    if (ud->generalSetting.cdnEnable) {
+        getCdn();
+    }
+#endif
 }
 
 void NetHelper::createQrCode()
@@ -731,30 +753,6 @@ void NetHelper::queryTicket()
 
     get(url, &NetHelper::queryTicketReply);
 }
-
-#ifdef HAS_CDN
-void NetHelper::queryTicketForCDN()
-{
-    QUrl url;
-    UserConfig &uc = UserData::instance()->getUserConfig();
-    QString args;
-    QStringList cdn = {
-                       _("112.47.27.84"),
-        _("112.48.138.12"),
-        _("112.15.42.132"),
-        _("112.47.27.83"),
-        _("183.255.112.100"),
-        _("112.15.3.51")
-    };
-    static int cdnIndex = 0;
-
-    args = _("?leftTicketDTO.train_date=%1&leftTicketDTO.from_station=%2&leftTicketDTO.to_station=%3&purpose_codes=ADULT")
-               .arg(uc.tourDate, uc.staFromCode, uc.staToCode);
-    url.setUrl(queryLeftTicketUrl + args);
-
-    get(url, cdn[cdnIndex++ % cdn.size()], &NetHelper::queryTicketReply);
-}
-#endif
 
 void NetHelper::queryTicketReply(QNetworkReply *reply)
 {
@@ -971,6 +969,7 @@ void NetHelper::getPassengerInfoReply(QNetworkReply *reply)
         }
         bool noLogin = data[_("noLogin")].toBool();
         if (noLogin) {
+            w->passengerDialog->hide();
             w->uamNotLogined();
         }
         return;
@@ -1012,7 +1011,15 @@ void NetHelper::checkUser()
     QUrl url(QStringLiteral(LOGINCHECKUSER));
     ReqParam param;
     param.put(_("_json_att"), _(""));
-
+#ifdef HAS_CDN
+    UserData *ud = UserData::instance();
+    if (ud->generalSetting.cdnEnable) {
+        QString h = cdn.getCurCdn();
+        if (!h.isEmpty()) {
+            cdn.setMainCdn(h);
+        }
+    }
+#endif
     post(url, param, &NetHelper::checkUserReply);
 }
 
@@ -1073,6 +1080,11 @@ void NetHelper::initDcReply(QNetworkReply *reply)
             //qDebug() << ud->submitTicketInfo.repeatSubmitToken;
         }
     }
+
+    ud->submitTicketInfo.purposeCodes.clear();
+    ud->submitTicketInfo.trainLocation.clear();
+    ud->submitTicketInfo.keyCheckIsChange.clear();
+    ud->submitTicketInfo.leftTicketStr.clear();
 
     for (auto &token : tokenList) {
         tokenPos = text.indexOf(token, beginPos);
@@ -1411,7 +1423,7 @@ void NetHelper::confirmSingleReply(QNetworkReply *reply)
     //qDebug() << varMap;
     bool status = varMap[_("status")].toBool();
     if (!status) {
-        w->formatOutput(_("出票失败! 无法预定本次车票"));
+        w->formatOutput(_("出票失败! 无法预订本次车票"));
         mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
@@ -1510,7 +1522,7 @@ void NetHelper::confirmSingleForQueueReply(QNetworkReply *reply)
     //qDebug() << varMap;
     bool status = varMap[_("status")].toBool();
     if (!status) {
-        w->formatOutput(_("出票失败! 无法预定本次车票"));
+        w->formatOutput(_("出票失败! 无法预订本次车票"));
         mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
@@ -1749,13 +1761,26 @@ void NetHelper::handlecandidateError()
     ud->candidateInfo.diffDateTrain.clear();
     ud->candidateInfo.submitSecretStr.clear();
     ud->candidateInfo.allSeatType.clear();
+    ud->recoverRunStatus();
     netStatInc(ECANDIDATEFAILED);
+#ifdef HAS_CDN
+    if (ud->generalSetting.cdnEnable) {
+        cdn.removeMainCdn();
+    }
+#endif
 }
 
 void NetHelper::candidateEntry(const struct CandidateDateInfo &dInfo)
 {
     UserData *ud = UserData::instance();
-
+#ifdef HAS_CDN
+    if (ud->generalSetting.cdnEnable && cdn.getMainCdn().isEmpty()) {
+        QString h = cdn.getCurCdn();
+        if (!h.isEmpty()) {
+            cdn.setMainCdn(h);
+        }
+    }
+#endif
     if (ud->candidateInfo.diffDateTrain.isEmpty()) {
         chechFace(dInfo);
     } else {
@@ -1791,6 +1816,7 @@ void NetHelper::chechFace(const struct CandidateDateInfo &dInfo)
         UserData *ud = UserData::instance();
         ud->candidateInfo.diffDateTrain.append(dInfo);
         ud->candidateInfo.submitSecretStr = secretList;
+        ud->setRunStatus(ESUBMITCANDIDATE);
         param.put(_("secretList"), secretList);
         param.put(_("_json_att"), _(""));
         qDebug() << param.get();
@@ -2313,37 +2339,45 @@ void NetHelper::sendCandidateMail()
                                "<table border=\"1\" style=\"color: #8B1A1A; background-color: #FFFAFA; margin-left: 20px\">"
                                "<tr>"
                                "<td>乘客</td><td>下单时间</td><td>乘车日期</td><td>车次</td><td>席别</td>"
-                               "<td>上车站</td><td>下车站</td>"
                                "</tr>";
         QString mailContent;
         QDateTime now = QDateTime::currentDateTime();
         mailContent += mailTemplate;
-        QString trains;
-        QString seatTypes;
+        QString text;
         for (int i = 0; i < ud->candidateInfo.passengers.size(); i++) {
             mailContent += _("<tr>");
             mailContent += _("<td>%1</td>").arg(ud->candidateInfo.passengers[i]);
             mailContent += _("<td>%1</td>").arg(now.toString(_("yyyy-MM-dd hh:mm:ss")));
             mailContent += _("<td>");
+
             for (auto &trainDate : ud->candidateInfo.diffDateTrain) {
-                mailContent += trainDate.date + ("、");
+                text += trainDate.date + ("、");
+            }
+            if (!text.isEmpty()) {
+                text.truncate(text.length() - 1);
             }
             mailContent += _("</td>");
+            text.clear();
             for (auto &trainAtDate : ud->candidateInfo.diffDateTrain) {
                 for (auto &train : trainAtDate.train) {
-                    if (!trains.contains(train.trainCode))
-                        trains += train.trainCode + _("、");
+                    if (!text.contains(train.trainCode))
+                        text += train.trainCode + _("、");
                 }
             }
-            mailContent += _("<td>%1</td>").arg(trains);
-            for (auto &seatType : ud->candidateInfo.allSeatType) {
-                QString s = seatTypeSubmtiCodeTransToDesc(seatType);
-                seatTypes += s + _("、");
+            if (!text.isEmpty()) {
+                text.truncate(text.length() - 1);
             }
-            mailContent += _("<td>%1</td>").arg(seatTypes);
-            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.fromStationName);
-            mailContent += _("<td>%1</td>").arg(ud->submitTicketInfo.toStationName);
+            mailContent += _("<td>%1</td>").arg(text);
+            text.clear();
+            for (auto &seatType : ud->candidateInfo.allSeatType) {
+                text += seatTypeSubmtiCodeTransToDesc(seatType) + _("、");
+            }
+            if (!text.isEmpty()) {
+                text.truncate(text.length() - 1);
+            }
+            mailContent += _("<td>%1</td>").arg(text);
             mailContent += _("</tr>");
+            text.clear();
         }
         mailContent += "</table>"
                        "<p>您收到此通知是因为您在<a href=\"https://www.yunying.org\">云映程序</a>配置了此邮箱，"
@@ -2380,7 +2414,7 @@ void NetHelper::sendWxNotify(const QString &sendKey, const QString &msg)
     param.put(_("title"), _("云映状态通知").toUtf8().toPercentEncoding());
     param.put(_("desp"), msg.toUtf8().toPercentEncoding());
     param.put(_("short"), _("您有一条需要关注的消息").toUtf8().toPercentEncoding());
-    post(url, param, &NetHelper::sendWxNotifyReply);
+    anyPost(url, param, &NetHelper::sendWxNotifyReply);
 }
 
 void NetHelper::sendWxNotifyReply(QNetworkReply *reply)
@@ -2397,7 +2431,7 @@ void NetHelper::sendWxNotifyReply(QNetworkReply *reply)
 void NetHelper::queryWxNotifyStatus(const QString &pushId, const QString &readKey)
 {
     QUrl url(_("https://sctapi.ftqq.com/push?id=") + pushId + _("&readkey=") + readKey);
-    get(url, &NetHelper::queryWxNotifyStatusReply);
+    anyGet(url, &NetHelper::queryWxNotifyStatusReply);
 }
 
 void NetHelper::queryWxNotifyStatusReply(QNetworkReply *reply)
@@ -2409,6 +2443,62 @@ void NetHelper::queryWxNotifyStatusReply(QNetworkReply *reply)
     }
     w->settingDialog->queryWxNotifyStatusReply(varMap);
 }
+
+void NetHelper::checkUpdate()
+{
+    QString platform;
+#ifdef Q_OS_WIN
+    platform = "Windows";
+#elif Q_OS_MACOS
+    platform = "MACOS";
+#else
+    platform = "Linux";
+#endif
+    QUrl url(_("http://101.201.78.185:8080/api/checkUpdate?ver=%1&platform=%2")
+                 .arg(THISVERSION, platform));
+    anyGet(url, &NetHelper::checkUpdateReply);
+}
+
+void NetHelper::checkUpdateReply(QNetworkReply *reply)
+{
+    QVariantMap varMap;
+    if (replyIsOk(reply, varMap) < 0) {
+        return;
+    }
+    qDebug() << varMap;
+    w->checkUpdateReply(varMap);
+}
+
+#ifdef HAS_CDN
+void NetHelper::getCdn()
+{
+    QUrl url(_("http://101.201.78.185:8080/api/getcdn"));
+    anyGet(url, &NetHelper::getCdnReply);
+}
+
+void NetHelper::getCdnReply(QNetworkReply *reply)
+{
+    QVariantMap varMap;
+    if (replyIsOk(reply, varMap) < 0) {
+        return;
+    }
+    int status = varMap[_("status")].toInt();
+    if (status) {
+        QString msg = varMap[_("msg")].toString();
+        if (!msg.isEmpty()) {
+            w->formatOutput(_("获取Cdn失败，描述：%1").arg(msg));
+            return;
+        }
+    }
+    QStringList cdnList = varMap[_("cdnList")].toStringList();
+    if (!cdnList.isEmpty()) {
+        cdn.addCdns(cdnList);
+        cdn.startTest();
+    }
+
+    qDebug() << varMap;
+}
+#endif
 
 NetHelper::~NetHelper()
 {

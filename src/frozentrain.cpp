@@ -1,8 +1,11 @@
 #include "frozentrain.h"
 #include <QDebug>
-FrozenTrain::FrozenTrain()
+#include <QObject>
+
+FrozenTrain::FrozenTrain(QObject *parent) : QObject(parent)
 {
     frozenTimer.setInterval(1000);
+    connect(&frozenTimer, &QTimer::timeout, this, &FrozenTrain::detectFrozenTimeout);
 }
 
 FrozenTrain::~FrozenTrain()
@@ -39,9 +42,10 @@ void FrozenTrain::detectFrozenTimeout()
          it != frozenTrain.end();
          ) {
         remainSeconds = it.value();
-        remainSeconds -= 1000;
+        remainSeconds--;
         it.value() = remainSeconds;
         if (remainSeconds <= 0) {
+            qDebug() << "remove " << it.key() << " because timeout";
             it = frozenTrain.erase(it);
         } else {
             it++;

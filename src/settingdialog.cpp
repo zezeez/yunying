@@ -220,7 +220,7 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     vLayout->addLayout(hlayout);
     vLayout->addWidget(stopPlayCB);
 
-//#ifdef HAS_CDN
+#ifdef HAS_CDN
     cdnCb = new QCheckBox(tr("启用CDN"));
     connect(cdnCb, &QCheckBox::toggled, this, [=] (bool checked) {
         UserData *ud = UserData::instance();
@@ -231,7 +231,7 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     checked = setting.value(_("setting/cdn_enable"), false).value<bool>();
     cdnCb->setChecked(checked);
     vLayout->addWidget(cdnCb);
-//#endif
+#endif
 
     vLayout->addStretch();
 
@@ -488,7 +488,7 @@ void SettingDialog::candidateSetting(QTabWidget *tab)
     QHBoxLayout *hlayout = new QHBoxLayout;
     QCheckBox *candidateCB = new QCheckBox(tr("候补购票"));
 
-    QCheckBox *onlyCandidateCB = new QCheckBox(tr("只候补不刷票"));
+    QCheckBox *onlyCandidateCB = new QCheckBox(tr("只候补不购票"));
     connect(onlyCandidateCB, &QCheckBox::toggled, this, [=] (bool checked) {
         UserData::instance()->candidateSetting.onlyCandidate = checked;
         QSettings setting;
@@ -561,6 +561,7 @@ void SettingDialog::candidateSetting(QTabWidget *tab)
     QDate curDate = QDate::currentDate();
     QDate setDate;
     extraCandidateDate->setDisplayFormat(_("yyyy-MM-dd"));
+    extraCandidateDate->setDateRange(curDate, curDate.addDays(14));
     connect(extraCandidateDate, &QDateEdit::dateChanged, this, [] (QDate date) {
         QSettings setting;
         QString s = date.toString(_("yyyy-MM-dd"));
@@ -587,6 +588,7 @@ void SettingDialog::candidateSetting(QTabWidget *tab)
     QCheckBox *extraCandidateDateCB2 = new QCheckBox(tr("额外的候补日期："));
     QDateEdit *extraCandidateDate2 = new QDateEdit;
     extraCandidateDate2->setDisplayFormat(_("yyyy-MM-dd"));
+    extraCandidateDate2->setDateRange(curDate, curDate.addDays(14));
     connect(extraCandidateDate2, &QDateEdit::dateChanged, this, [] (QDate date) {
         QSettings setting;
         QString s = date.toString(_("yyyy-MM-dd"));

@@ -47,17 +47,13 @@ int main(int argc, char *argv[])
                         Qt::AlignBottom | Qt::AlignLeft, Qt::white);
     splash->finish(w);
     delete splash;
-    QString s1 = "2024-01-01";
-    QString s2 = "2023-04-02";
-    QString s3 = "2024-04-04";
-    QVector<QString> v = { s1, s2, s3 };
-    std::sort(v.begin(), v.end());
-    qDebug() << v;
 
-    //NetHelper::instance()->initLoginCookie();
-    //NetHelper::instance()->getLoginConf();
+    NetHelper::instance()->initLoginCookie();
+    NetHelper::instance()->getLoginConf();
     //NetHelper::instance()->isUamLogin();
-    w->show();
+    //w->show();
+    NetHelper::instance()->checkUpdate();
+    //NetHelper::instance()->getCdn();
 
     return a.exec();
 }

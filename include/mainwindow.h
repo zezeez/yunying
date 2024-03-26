@@ -83,6 +83,8 @@ public:
     void processStopStationReply(QVariantMap &data);
     void setStationNameCompleter(const QByteArray &nameText);
     void updateNetQualityStatus(int ms);
+    void enterGrabTicketMode();
+    void exitGrabTicketMode();
     void enterGrabMode();
     void exitGrabMode();
     void prepareGrabTicket(bool status);
@@ -99,6 +101,7 @@ public:
     void stopPlayMusic();
     void startOrStopPlayMusic();
     void setMusicPath(const QString &path);
+    void checkUpdateReply(const QVariantMap &varMap);
 
 private:
     Ui::MainWindow *ui;

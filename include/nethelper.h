@@ -11,10 +11,11 @@
 #include <QNetworkCookieJar>
 #include <cookieapi.h>
 #include <frozentrain.h>
+#ifdef HAS_CDN
+#include <cdn.h>
+#endif
 
 class QNetworkReply;
-
-
 
 class ReqParam
 {
@@ -52,12 +53,10 @@ public:
     void setHeader(const QUrl &url, QNetworkRequest &request);
     void post(const QUrl &url, ReqParam &param, replyCallBack rcb);
     void post(const QUrl &url, ReqParam &param, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
+    void anyPost(const QUrl &url, ReqParam &param, replyCallBack rcb);
     void get(const QUrl &url, replyCallBack rcb);
-#ifdef HAS_CDN
-    void post(const QUrl &url, ReqParam &param, const QString &ip, NetHelper::replyCallBack rcb);
-    void get(const QUrl &url, const QString &ip, replyCallBack rcb);
-#endif
     void get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
+    void anyGet(const QUrl &url, replyCallBack rcb);
     void ignoreReply(QNetworkReply *reply);
     void initLoginCookie();
     void initLoginCookieReply(QNetworkReply *reply);
@@ -86,7 +85,6 @@ public:
     void sendSmsRequest(const QString &idCardNumTail);
     void sendSmsRequestReply(QNetworkReply *reply);
     void queryTicket();
-    void queryTicketForCDN();
     void queryTicketReply(QNetworkReply *reply);
     void queryDiffDateTicket(const QString &date);
     void queryDiffDateTicketReply(QNetworkReply *reply);
@@ -155,6 +153,13 @@ public:
     void queryWxNotifyStatus(const QString &pushId, const QString &readKey);
     void queryWxNotifyStatusReply(QNetworkReply *reply);
 
+    void checkUpdate();
+    void checkUpdateReply(QNetworkReply *reply);
+#ifdef HAS_CDN
+    void getCdn();
+    void getCdnReply(QNetworkReply *reply);
+#endif
+
 signals:
     void finished(QNetworkReply *reply);
 public slots:
@@ -180,9 +185,13 @@ public:
     QString chooseSeat;
     bool canChooseSeats;
     QVector<int> netStatSample;
+    QVector<QString> cdnList;
     QVector<QVector<int>> statSnapshot;
     QTimer *capSnapTimer;
     QTimer *rttDelayTimer;
+#ifdef HAS_CDN
+    Cdn cdn;
+#endif
 };
 
 

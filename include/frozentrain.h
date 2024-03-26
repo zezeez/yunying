@@ -3,11 +3,13 @@
 #include <QMap>
 #include <QString>
 #include <QTimer>
+#include <QObject>
 
-class FrozenTrain
+class FrozenTrain : public QObject
 {
+    Q_OBJECT
 public:
-    FrozenTrain();
+    FrozenTrain(QObject *parent = nullptr);
     ~FrozenTrain();
     void addFrozenTrain(const QString &trainDesc, int seconds);
     void removeFrozenTrain(const QString &trainDesc);
