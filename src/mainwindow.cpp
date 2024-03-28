@@ -250,6 +250,11 @@ void MainWindow::createUiComponent()
 
     menu = menuBar()->addMenu(tr("&文件"));
 
+    action = new QAction(tr("&注销..."), this);
+    action->setStatusTip(tr("注销登陆"));
+    connect(action, &QAction::triggered, this, &MainWindow::logout);
+    menu->addAction(action);
+
     action = new QAction(tr("&退出..."), this);
     action->setShortcut(tr("Ctrl+Q"));
     action->setStatusTip(tr("退出程序"));
@@ -259,13 +264,11 @@ void MainWindow::createUiComponent()
     menu = menuBar()->addMenu(tr("&显示"));
 
     action = new QAction(tr("&历史提交..."), this);
-    action->setShortcut(tr("Ctrl+H"));
     action->setStatusTip(tr("查看历史提交记录"));
     connect(action, &QAction::triggered, historyInfoDialog, &QDialog::show);
     menu->addAction(action);
 
     action = new QAction(tr("&设置..."), this);
-    action->setShortcut(tr("Ctrl+S"));
     action->setStatusTip(tr("打开设置界面"));
     connect(action, &QAction::triggered, settingDialog, &SettingDialog::show);
     menu->addAction(action);
@@ -372,6 +375,17 @@ void MainWindow::uamNotLogined()
     if (loginDialog)
         loginDialog->show();
 }
+
+void MainWindow::logout()
+{
+    NetHelper::instance()->logout();
+}
+
+void MainWindow::logoutSuccess()
+{
+    showLoginDialog();
+}
+
 
 void MainWindow::setRemainTicketColor(QString &remain, QStandardItem *item)
 {
@@ -1711,26 +1725,6 @@ void MainWindow::writeSettings()
     UserData::instance()->writeConfigFile();
 }
 
-void MainWindow::changeTrain()
-{
-
-}
-
-void MainWindow::changeStation()
-{
-
-}
-
-void MainWindow::cancelTicket()
-{
-
-}
-
-void MainWindow::editConfiguration()
-{
-
-}
-
 void MainWindow::initStatusBars()
 {
     /*QLabel *label = new QLabel;
@@ -1792,9 +1786,8 @@ void MainWindow::formatWithColorOutput(const QString &output, const QColor color
 void MainWindow::about()
 {
     QMessageBox::about(this, tr("关于云映"),
-                       tr("<h2>云映客户端版本" THISVERSION "</h2>"
-                          "<p>Copyleft; 2024 Software Inc.</p>"
-                          "<p>本程序<a href=\"www.xiapp.cn\">云映</a>仅限于个人使用，不可商用</p>"
+                       tr("<p>云映客户端版本" THISVERSION "</p>"
+                          "<p>本程序<a href=\"www.op9.top\">云映</a>仅限于个人使用，不可商用</p>"
                           ));
 }
 

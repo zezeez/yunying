@@ -44,6 +44,8 @@
 #define QR64 BASEURL "/passport/web/create-qr64"
 #define CHECKQR BASEURL "/passport/web/checkqr"
 
+#define LOGOUT BASEURL PUBLICNAME "/login/loginOut"
+
 // 订单
 // 检查用户是否登陆，下单前需要检查
 #define LOGINCHECKUSER  BASEURL PUBLICNAME "/login/checkUser"

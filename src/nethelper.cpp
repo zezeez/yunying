@@ -210,6 +210,7 @@ void NetHelper::get(const QUrl &url, replyCallBack rcb)
         }
     }
     request.setPeerVerifyName(_("kyfw.12306.cn"));
+    nam->clearConnectionCache();
 #endif
     qDebug() << request.ipAddress();
     setHeader(url, request);
@@ -321,7 +322,7 @@ int NetHelper::checkReplyOk(QNetworkReply *reply)
         return -1;
     }
     int rttDelay = caculateRTTDelay(reply, errorNo);
-    maySetLocalTime(reply, rttDelay);
+    //maySetLocalTime(reply, rttDelay);
 
     QVariant statusCode =
         reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
@@ -653,6 +654,19 @@ void NetHelper::loginSuccess()
         getCdn();
     }
 #endif
+}
+
+void NetHelper::logout()
+{
+    QUrl url(_(LOGOUT));
+    get(url, &NetHelper::logoutReply);
+}
+
+void NetHelper::logoutReply(QNetworkReply *reply)
+{
+    if (checkReplyOk(reply) < 0)
+        return;
+    w->logoutSuccess();
 }
 
 void NetHelper::createQrCode()
@@ -2317,8 +2331,8 @@ void NetHelper::sendMail()
             mailContent += _("</tr>");
         }
         mailContent += "</table>"
-            "<p>您收到此通知是因为您在<a href=\"https://www.yunying.org\">云映程序</a>配置了此邮箱，"
-            "如您未使用<a href=\"https://www.yunying.org\">云映程序</a>进行过相关配置或未授权他人使用此邮箱，请忽略本邮件。</p>"
+            "<p>您收到此通知是因为您在<a href=\"https://www.op9.top\">云映程序</a>配置了此邮箱，"
+            "如您未使用<a href=\"https://www.op9.top\">云映程序</a>进行过相关配置或未授权他人使用此邮箱，请忽略本邮件。</p>"
             "</body>"
             "</html>";
         w->settingDialog->sendMail(mailContent);
@@ -2380,8 +2394,8 @@ void NetHelper::sendCandidateMail()
             text.clear();
         }
         mailContent += "</table>"
-                       "<p>您收到此通知是因为您在<a href=\"https://www.yunying.org\">云映程序</a>配置了此邮箱，"
-                       "如您未使用<a href=\"https://www.yunying.org\">云映程序</a>进行过相关配置或未授权他人使用此邮箱，请忽略本邮件。</p>"
+                       "<p>您收到此通知是因为您在<a href=\"https://www.op9.top\">云映程序</a>配置了此邮箱，"
+                       "如您未使用<a href=\"https://www.op9.top\">云映程序</a>进行过相关配置或未授权他人使用此邮箱，请忽略本邮件。</p>"
                        "</body>"
                        "</html>";
         w->settingDialog->sendMail(mailContent);

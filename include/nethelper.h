@@ -78,6 +78,8 @@ public:
     void loginForLocationPasscodeReply(QNetworkReply *reply);
     void loginIndex();
     void loginSuccess();
+    void logout();
+    void logoutReply(QNetworkReply *reply);
     void createQrCode();
     void createQrCodeReply(QNetworkReply *reply);
     void checkQrCode(const QString &uuid);

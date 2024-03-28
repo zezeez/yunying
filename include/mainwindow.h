@@ -48,10 +48,6 @@ protected:
 
 private slots:
     void about();
-    void changeTrain();
-    void changeStation();
-    void cancelTicket();
-    void editConfiguration();
     void setUpTableView();
     void queryTicket();
     void swapStation();
@@ -71,6 +67,8 @@ public:
     void writeSettings();
     void uamLogined();
     void uamNotLogined();
+    void logout();
+    void logoutSuccess();
     int replyIsOk(QNetworkReply *reply);
     void showStatusBarMessage(const QString &message);
     void formatOutput(const QString &output);

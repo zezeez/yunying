@@ -28,8 +28,8 @@ int main(int argc, char *argv[])
     splash->showMessage(QObject::tr("正在加载站点数据..."),
                         Qt::AlignBottom | Qt::AlignLeft, Qt::white);
 
-    QCoreApplication::setOrganizationName(_("mpsoftware ltd.co"));
-    QCoreApplication::setOrganizationDomain(_("mupiao.xyz"));
+    QCoreApplication::setOrganizationName(_("yuny"));
+    QCoreApplication::setOrganizationDomain(_("op9.top"));
     QCoreApplication::setApplicationName(_("云映"));
 
     w = new MainWindow;
