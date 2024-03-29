@@ -7,8 +7,7 @@ class SysUtil
 public:
     SysUtil();
     ~SysUtil();
-    int setSysTime(const QDateTime &curTime);
-    int setSysTime(const QString &curTime, int delay);
+    static int setSysTime(const QDateTime &curTime);
 };
 
 #endif // SYSUTIL_H

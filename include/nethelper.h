@@ -66,7 +66,6 @@ public:
     void onSmsVerificationLogin(const QString &verification_code);
     void onLoginUamReply(QNetworkReply *reply);
     void isUamLogin();
-    void maySetLocalTime(QNetworkReply *reply, int rttDelay);
     int caculateRTTDelay(QNetworkReply *reply, enum QNetworkReply::NetworkError errorNo);
     void isUamLoginReply(QNetworkReply *reply);
     int checkReplyOk(QNetworkReply *reply);

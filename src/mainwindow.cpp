@@ -261,6 +261,13 @@ void MainWindow::createUiComponent()
     connect(action, &QAction::triggered, this, &MainWindow::close);
     menu->addAction(action);
 
+    menu = menuBar()->addMenu(tr("&操作"));
+
+    action = new QAction(tr("&立即同步时间"), this);
+    action->setStatusTip(tr("立即从指定的时间服务器同步时间"));
+    connect(action, &QAction::triggered, this, &MainWindow::syncTime);
+    menu->addAction(action);
+
     menu = menuBar()->addMenu(tr("&显示"));
 
     action = new QAction(tr("&历史提交..."), this);
@@ -287,6 +294,10 @@ void MainWindow::createUiComponent()
 
     menu = menuBar()->addMenu(tr("&帮助"));
 
+    action = new QAction(tr("在线帮助..."), this);
+    action->setStatusTip(tr("跳转到在线页面查看帮助"));
+    connect(action, &QAction::triggered, this, &MainWindow::onlineHelp);
+    menu->addAction(action);
     action = new QAction(tr("关于..."), this);
     action->setStatusTip(tr("显示版本信息"));
     connect(action, &QAction::triggered, this, &MainWindow::about);
@@ -360,20 +371,25 @@ void MainWindow::swapStation()
     trainNoDialog->clearUnSelectedTrain();
 }
 
+void MainWindow::syncTime()
+{
+    UserData *ud = UserData::instance();
+    if (ud->generalSetting.autoSyncServerTime) {
+        ntp.syncTime(ud->generalSetting.timeServer);
+    }
+}
+
 void MainWindow::uamLogined()
 {
     statusBar()->showMessage(QStringLiteral("已登陆"));
-    if (loginDialog)
-        loginDialog->hide();
-    show();
+    showMainWindow();
+    syncTime();
 }
 
 void MainWindow::uamNotLogined()
 {
     statusBar()->showMessage(QStringLiteral("未登陆"));
-    hide();
-    if (loginDialog)
-        loginDialog->show();
+    showLoginDialog();
 }
 
 void MainWindow::logout()
@@ -1789,6 +1805,11 @@ void MainWindow::about()
                        tr("<p>云映客户端版本" THISVERSION "</p>"
                           "<p>本程序<a href=\"www.op9.top\">云映</a>仅限于个人使用，不可商用</p>"
                           ));
+}
+
+void MainWindow::onlineHelp()
+{
+    QDesktopServices::openUrl(QUrl(_("http:://www.op9.top/help.html")));
 }
 
 MainWindow::~MainWindow()

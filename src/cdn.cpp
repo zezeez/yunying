@@ -3,9 +3,25 @@
 
 Cdn::Cdn(QObject *parent) : QObject(parent)
 {
-    ssl = new QSslSocket;
     avaCdnIndex = 0;
-     connect(ssl, &QSslSocket::stateChanged,
+    connect(&testCdnTimer, &QTimer::timeout, this, &Cdn::testCdnTimeout);
+}
+
+Cdn::~Cdn()
+{
+    if (ssl) {
+        delete ssl;
+        ssl = nullptr;
+    }
+}
+
+void Cdn::setupSsl()
+{
+    if (!ssl) {
+        ssl = new QSslSocket;
+    }
+
+    connect(ssl, &QSslSocket::stateChanged,
             this, &Cdn::socketStateChanged);
     connect(ssl, &QSslSocket::encrypted,
             this, &Cdn::socketEncrypted);
@@ -17,22 +33,25 @@ Cdn::Cdn(QObject *parent) : QObject(parent)
             this, &Cdn::readyRead);
     /*connect(ssl, &QSslSocket::disconnected,
             this, &Cdn::startTest);*/
-    connect(&testCdnTimer, &QTimer::timeout, this, [=]() {
-        if (!allCdn.isEmpty()) {
-            if (ssl->state() == QAbstractSocket::UnconnectedState) {
-                startTest();
-            }
-        } else {
-            testCdnTimer.stop();
-        }
-    });
+
     ssl->setPeerVerifyName("kyfw.12306.cn");
 }
 
-Cdn::~Cdn()
+void Cdn::testCdnTimeout()
 {
-    delete ssl;
+    if (!allCdn.isEmpty()) {
+        if (ssl->state() == QAbstractSocket::UnconnectedState) {
+            startTest();
+        }
+    } else {
+        if (ssl) {
+            delete ssl;
+            ssl = nullptr;
+        }
+        testCdnTimer.stop();
+    }
 }
+
 void Cdn::socketStateChanged()
 {
 
@@ -80,6 +99,9 @@ void Cdn::startTest()
 {
     if (allCdn.isEmpty()) {
         return;
+    }
+    if (!ssl) {
+        setupSsl();
     }
     QString host = allCdn.front();
     ssl->connectToHostEncrypted(host, 443);

@@ -336,6 +336,7 @@ struct GeneralSetting {
 #endif
     QString musicPath;
     QString customMusicPath;
+    QString timeServer;
 };
 
 class UserData

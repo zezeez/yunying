@@ -11,6 +11,8 @@ class Cdn : public QObject
 public:
     Cdn(QObject *parent = nullptr);
     ~Cdn();
+    void setupSsl();
+    void testCdnTimeout();
     void addCdn(const QString &cdn);
     void addCdns(const QStringList &cdnList);
     void startTest();

@@ -200,17 +200,19 @@ void NetHelper::get(const QUrl &url, replyCallBack rcb)
     QNetworkRequest request;
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
-    //request.setPeerVerifyName("kyfw.12306.cn");
 #ifdef HAS_CDN
     UserData *ud = UserData::instance();
     if (ud->generalSetting.cdnEnable) {
-        QString h = cdn.getNextCdn();
-        if (!h.isEmpty()) {
-            request.setIpAddress(h);
+        QString cur = cdn.getCurCdn();
+        QString next = cdn.getNextCdn();
+        if (!next.isEmpty()) {
+            request.setIpAddress(next);
+            if (cur != next) {
+                nam->clearConnectionCache();
+            }
         }
     }
     request.setPeerVerifyName(_("kyfw.12306.cn"));
-    nam->clearConnectionCache();
 #endif
     qDebug() << request.ipAddress();
     setHeader(url, request);
@@ -247,30 +249,6 @@ void NetHelper::anyGet(const QUrl &url, replyCallBack rcb)
     replyMap.insert(reply, rcb);
     QDateTime time = QDateTime::currentDateTime();
     rttMap.insert(reply, time.toMSecsSinceEpoch());
-}
-
-void NetHelper::maySetLocalTime(QNetworkReply *reply, int rttDelay)
-{
-    static bool setLocalTimeOnce = true;
-
-    if (setLocalTimeOnce &&
-        UserData::instance()->generalSetting.autoSyncServerTime && reply->hasRawHeader("Date")) {
-        QByteArray dateValue = reply->rawHeader("Date");
-        SysUtil util;
-        int ret = util.setSysTime(QString::fromUtf8(dateValue), rttDelay);
-        if (ret == 0) {
-            setLocalTimeOnce = false;
-        } else if (ret == -1) {
-            if (errno == EPERM) {
-                w->formatOutput(_("同步设置系统时间失败，原因：没有足够的权限"));
-            } else if (errno == EINVAL) {
-                w->formatOutput(_("同步设置系统时间失败，原因：参数错误"));
-            } else {
-                w->formatOutput(_("同步设置系统时间失败，原因：未知"));
-            }
-            setLocalTimeOnce = false;
-        }
-    }
 }
 
 int NetHelper::caculateRTTDelay(QNetworkReply *reply, enum QNetworkReply::NetworkError errorNo)
@@ -321,8 +299,7 @@ int NetHelper::checkReplyOk(QNetworkReply *reply)
         caculateRTTDelay(reply, errorNo);
         return -1;
     }
-    int rttDelay = caculateRTTDelay(reply, errorNo);
-    //maySetLocalTime(reply, rttDelay);
+    caculateRTTDelay(reply, errorNo);
 
     QVariant statusCode =
         reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
@@ -351,18 +328,27 @@ int NetHelper::replyIsOk(QNetworkReply *reply, QVariantMap &varMap)
         return -1;
 
     QJsonParseError error;
-    QByteArray ba = reply->readAll();
-    QJsonDocument jsonDocument = QJsonDocument::fromJson(ba, &error);
+    QByteArray content = reply->readAll();
+    QJsonDocument jsonDoc;
 
-    if (error.error != QJsonParseError::NoError || jsonDocument.isNull()) {
-        w->formatOutput(QStringLiteral("服务器返回数据JSON解析错误，错误位置：%1，错误码：%2，错误描述：%3")
-                            .arg(error.offset).arg(error.error).arg(error.errorString()));
-        qDebug() << ba;
+    QByteArray contentType = reply->rawHeader(_("Content-Type").toLatin1());
+
+    if (contentType == _("application/json;charset=UTF-8")) {
+        jsonDoc = QJsonDocument::fromJson(content, &error);
+        if (error.error != QJsonParseError::NoError || jsonDoc.isNull()) {
+            w->formatOutput(QStringLiteral("服务器返回数据JSON解析错误，错误位置：%1，错误码：%2，错误描述：%3")
+                                .arg(error.offset).arg(error.error).arg(error.errorString()));
+            qDebug() << content;
+            netStatInc(EBADREPLY);
+            return -1;
+        }
+    } else {
+        w->formatOutput(QStringLiteral("服务器返回错误"));
         netStatInc(EBADREPLY);
         return -1;
     }
 
-    varMap = jsonDocument.toVariant().toMap();
+    varMap = jsonDoc.toVariant().toMap();
     return 0;
 }
 
@@ -418,15 +404,7 @@ void NetHelper::getLoginConfReply(QNetworkReply *reply)
     lconf.isMessagePasscode =  value.length() == 0 || value == _("Y") ? true : false;
 
     if (lconf.isUamLogin) {
-        if (lconf.isSweepLogin) {
-            // 显示扫码登录入口
-            //loginDialog->selectQrCodeTab();
-            w->loginDialog->showQrCodeTab();
-        } else {
-            // 隐藏扫码登录入口
-            w->loginDialog->hideQrCodeTab();
-        }
-        w->showLoginDialog();
+        isUamLogin();
     } else {
         if (lconf.isLogin) {
             w->showMainWindow();
@@ -537,11 +515,18 @@ void NetHelper::isUamLoginReply(QNetworkReply *reply)
 
     int result_code = response[_("result_code")].toInt();
     if (result_code == 0) {
-        w->uamLogined();
-        getPassengerInfo();
+        loginSuccess();
     } else {
         w->uamNotLogined();
-        getLoginConf();
+        LoginConf &lconf = LoginConf::instance();
+        if (lconf.isSweepLogin) {
+            // 显示扫码登录入口
+            //loginDialog->selectQrCodeTab();
+            w->loginDialog->showQrCodeTab();
+        } else {
+            // 隐藏扫码登录入口
+            w->loginDialog->hideQrCodeTab();
+        }
     }
 }
 
@@ -552,18 +537,19 @@ void NetHelper::loginForUam(ReqParam &param)
     QUrl url = QStringLiteral(PASSPORT_LOGIN);
     UserData *ud = UserData::instance();
     QString encode_passwd;
+    QList<std::pair<QString, QString>> headers;
 
+    headers.push_back(std::pair("isPasswordCopy", _("")));
+    headers.push_back(std::pair("appFlag", _("")));
     if (param.isEmpty()) {
         data.put(_("username"), ud->getUserLoginInfo().userName.toUtf8().toPercentEncoding());
         encode_passwd = sm4_encrypt_ecb(ud->getUserLoginInfo().passwd, SM4_KEY_SECRET);
         data.put(_("password"), '@' + encode_passwd.toUtf8().toPercentEncoding());
         data.put(_("appid"), _(PASSPORT_APPID));
         data.put(_("answer"), _(""));
-        //headers.push_back(std::pair("Content-Length", QString::number(data.get().length() - 1)));
-        post(url, data, &NetHelper::loginForUamReply);
+        post(url, data, &NetHelper::loginForUamReply, headers);
     } else {
-        //headers.push_back(std::pair("Content-Length", QString::number(param.get().length() - 1)));
-        post(url, param, &NetHelper::loginForUamReply);
+        post(url, param, &NetHelper::loginForUamReply, headers);
     }
 }
 
@@ -579,12 +565,13 @@ void NetHelper::loginForUamReply(QNetworkReply *reply)
     int result_code = response[_("result_code")].toInt();
     switch (result_code) {
     case 0:
+        passportUamtk();
+        break;
     case 91:
     case 92:
     case 94:
     case 95:
     case 97:
-        loginSuccess();
         break;
     case 101:
         QMessageBox::warning(w->loginDialog, tr("Warning"), message, QMessageBox::Ok);
@@ -645,8 +632,8 @@ void NetHelper::loginIndex()
 
 void NetHelper::loginSuccess()
 {
-    w->showMainWindow();
-    w->showStatusBarMessage(_("当前用户：%1").arg(UserData::instance()->getUserLoginInfo().account));
+    //w->showStatusBarMessage(_("当前用户：%1").arg(UserData::instance()->getUserLoginInfo().account));
+    w->uamLogined();
     getPassengerInfo();
 #ifdef HAS_CDN
     UserData *ud = UserData::instance();
@@ -686,8 +673,8 @@ void NetHelper::createQrCodeReply(QNetworkReply *reply)
         enum QNetworkReply::NetworkError errorNo = reply->error();
 
         if (errorNo != QNetworkReply::NoError) {
-            if (errorNo == QNetworkReply::HostNotFoundError ||
-                errorNo == QNetworkReply::TimeoutError) {
+            if (errorNo != QNetworkReply::HostNotFoundError &&
+                errorNo != QNetworkReply::TimeoutError) {
                 createQrCode();
             }
             return;

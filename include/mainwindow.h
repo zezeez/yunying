@@ -24,6 +24,7 @@
 #include "seatdialog.h"
 #include "chart/barchart.h"
 #include "chart/linechart.h"
+#include "lib/ntp/include/ntp.h"
 
 namespace Ui {
 class MainWindow;
@@ -48,6 +49,7 @@ protected:
 
 private slots:
     void about();
+    void onlineHelp();
     void setUpTableView();
     void queryTicket();
     void swapStation();
@@ -65,11 +67,11 @@ public:
     void createRightMenu();
     void readSettings();
     void writeSettings();
+    void syncTime();
     void uamLogined();
     void uamNotLogined();
     void logout();
     void logoutSuccess();
-    int replyIsOk(QNetworkReply *reply);
     void showStatusBarMessage(const QString &message);
     void formatOutput(const QString &output);
     void commonSetting(QTabWidget *tab);
@@ -146,6 +148,8 @@ public:
 
     BarChartView *statChart;
     LineChartView *delayChart;
+
+    Ntp ntp;
 };
 
 #endif // MAINWINDOW_H

@@ -163,16 +163,16 @@ const char* GetMimeTypeFromFileName(char* szFileExt)
     return MimeTypes[0][1];   //if does not match any,  "application/octet-stream" is returned
 }
 
-std::string base64Encode(char const* origSigned, unsigned origLength)
+std::string base64Encode(char const* origSigned, size_t origLength)
 {
     const char base64Char[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     unsigned char const* orig = (unsigned char const*)origSigned; // in case any input bytes have the MSB set
     if (orig == NULL) return "";
 
-    unsigned const numOrig24BitValues = origLength / 3;
+    size_t const numOrig24BitValues = origLength / 3;
     bool havePadding = origLength > numOrig24BitValues * 3;
     bool havePadding2 = origLength == numOrig24BitValues * 3 + 2;
-    unsigned const numResultBytes = 4 * (numOrig24BitValues + havePadding);
+    size_t const numResultBytes = 4 * (numOrig24BitValues + havePadding);
     char* result = new char[numResultBytes + 3]; // allow for trailing '/0'
 
     // Map each full group of 3 input bytes into 4 output base-64 characters:

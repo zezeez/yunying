@@ -20,6 +20,7 @@
 #include <QJsonDocument>
 #include "mainwindow.h"
 #include "nethelper.h"
+#include "lib/ntp/include/ntp.h"
 
 #define _ QStringLiteral
 
@@ -115,7 +116,7 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     vLayout->addWidget(group);
 
     QSettings setting;
-    QCheckBox *cb = new QCheckBox(tr("自动同步12306服务器时间"));
+    QCheckBox *cb = new QCheckBox(tr("同步服务器时间"));
     connect(cb, &QCheckBox::toggled, this, [=] (bool checked) {
         UserData *ud = UserData::instance();
         ud->generalSetting.autoSyncServerTime = checked;
@@ -124,9 +125,39 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     });
     bool checked = setting.value(_("setting/auto_sync_server_time"), true).value<bool>();
     cb->setChecked(checked);
+    QComboBox *timeServerCb = new QComboBox;
+    QStringList timeServerList = {
+                                   "ntp1.nim.ac.cn",
+                                   "ntp2.nim.ac.cn",
+                                   "ntp.tencent.com",
+                                   "ntp1.tencent.com",
+                                   "ntp3.tencent.com",
+                                   "ntp4.tencent.com",
+                                   "ntp5.tencent.com",
+                                   "ntp.sjtu.edu.cn",
+                                   "ntp.bupt.edu.cn",
+                                   "ntp.ustc.edu.cn",
+                                   "time.smg.gov.mo",
+                                   "ntp.fudan.edu.cn",
+    };
+    timeServerCb->addItems(timeServerList);
+    QString text = setting.value(_("setting/timeServer"), _("")).value<QString>();
+    timeServerCb->setCurrentText(text);
+    connect(timeServerCb, &QComboBox::currentTextChanged, this, [](QString text) {
+        UserData *ud = UserData::instance();
+        ud->generalSetting.timeServer = text;
+        QSettings setting;
+        setting.setValue(_("setting/timeServer"), text);
+        w->syncTime();
+    });
+
     QGroupBox *groupBox = new QGroupBox;
+    QHBoxLayout *hlayout = new QHBoxLayout;
+    hlayout->addWidget(cb);
+    hlayout->addWidget(timeServerCb);
+    hlayout->addStretch();
     QVBoxLayout *vLayout1 = new QVBoxLayout;
-    vLayout1->addWidget(cb);
+    vLayout1->addLayout(hlayout);
     groupBox->setLayout(vLayout1);
 
     vLayout->addWidget(groupBox);
@@ -183,7 +214,7 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     UserData *ud = UserData::instance();
     ud->generalSetting.musicPath = _("music/preset%1.mp3").arg(index);
 
-    QHBoxLayout *hlayout = new QHBoxLayout;
+    hlayout = new QHBoxLayout;
     hlayout->addWidget(promptMusicCb);
     hlayout->addWidget(musicListCb);
     hlayout->addStretch();
@@ -208,7 +239,7 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     customLe->setEnabled(false);
     checked = setting.value(_("setting/custom_music"), false).value<bool>();
     customCb->setChecked(checked);
-    QString text = setting.value(_("setting/custom_music_path"), _("")).value<QString>();
+    text = setting.value(_("setting/custom_music_path"), _("")).value<QString>();
     customLe->setText(text);
     ud->generalSetting.customMusicPath = text;
 

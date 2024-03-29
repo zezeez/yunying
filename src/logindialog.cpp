@@ -17,9 +17,10 @@
 #include <QSettings>
 #include <QMovie>
 
-LoginDialog::LoginDialog(QDialog *parent) :
+LoginDialog::LoginDialog(QWidget *parent) :
     QDialog(parent)
 {
+    setWindowIcon(QIcon(_(":/icon/images/ticket.ico")));
 }
 
 LoginDialog::~LoginDialog()
@@ -106,9 +107,14 @@ void LoginDialog::setUp()
     });
     smsPb->hide();
     smsLe->hide();
+    smsPb->setMinimumHeight(20);
+    smsLe->setMinimumHeight(20);
+    idCardNumLe->setMinimumHeight(20);
     hLayout->addWidget(smsLe);
     hLayout->addWidget(smsPb);
+    //vLayout->addSpacing(20);
     vLayout->addWidget(idCardNumLe);
+    //vLayout->addSpacing(10);
     vLayout->addLayout(hLayout);
     remindLabel2 = new QLabel;
     remindLabel2->setStyleSheet(_("color: red"));
@@ -263,7 +269,7 @@ void LoginDialog::hideUserNamePasswd()
     QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
     QFormLayout *fLayout = static_cast<QFormLayout *>(vLayout->itemAt(0));
 
-    logoLabel->hide();
+    //logoLabel->hide();
     keepPasswdCB->hide();
     remindLabel1->hide();
     userNameLe->hide();
@@ -279,7 +285,7 @@ void LoginDialog::showUserNamePasswd()
     QWidget *widget = tabWidget->widget(0);
     QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
     QFormLayout *fLayout = static_cast<QFormLayout *>(vLayout->itemAt(0));
-    logoLabel->show();
+    //logoLabel->show();
     keepPasswdCB->show();
     remindLabel1->show();
     userNameLe->show();

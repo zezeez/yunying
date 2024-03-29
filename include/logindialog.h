@@ -12,7 +12,7 @@ class LoginDialog : public QDialog
 {
     Q_OBJECT
 public:
-    LoginDialog(QDialog *parent = nullptr);
+    LoginDialog(QWidget *parent = nullptr);
     ~LoginDialog();
     void setUp();
     void tabIndexChanged(int index);

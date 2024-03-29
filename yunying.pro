@@ -29,6 +29,7 @@ INCLUDEPATH += include
 # DEPENDPATH = .
 
 SOURCES += \
+    lib/ntp/src/ntp.cpp \
     src/analysis.cpp \
     src/cdn.cpp \
     src/chart/barchart.cpp \
@@ -73,6 +74,7 @@ HEADERS += \
     include/trainnodialog.h \
     include/userdata.h \
     include/completeedit.h \
+    lib/ntp/include/ntp.h \
     lib/smtp/include/smtp.h \
     lib/sm4/include/sm4.h
 
