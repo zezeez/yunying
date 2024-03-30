@@ -43,7 +43,7 @@ void Ntp::setupUdp()
 void Ntp::clearUdp()
 {
     if (udp) {
-        //udp->disconnectFromHost();
+        udp->disconnectFromHost();
         udp->deleteLater();
         udp = nullptr;
     }
@@ -114,7 +114,7 @@ void Ntp::receive()
 {
     struct NtpPacket *p;
     QByteArray reply = udp->readAll();
-    if (reply.size() < sizeof(*p) - sizeof(p->digest)) {
+    if ((size_t)reply.size() < sizeof(*p) - sizeof(p->digest)) {
         qDebug() << "reply size " << reply.size() << " are too small.";
         return;
     }

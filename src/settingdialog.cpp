@@ -141,8 +141,10 @@ void SettingDialog::commonSetting(QTabWidget *tab)
                                    "ntp.fudan.edu.cn",
     };
     timeServerCb->addItems(timeServerList);
-    QString text = setting.value(_("setting/timeServer"), _("")).value<QString>();
+    QString text = setting.value(_("setting/timeServer"), _("ntp1.nim.ac.cn")).value<QString>();
     timeServerCb->setCurrentText(text);
+    UserData *ud = UserData::instance();
+    ud->generalSetting.timeServer = text;
     connect(timeServerCb, &QComboBox::currentTextChanged, this, [](QString text) {
         UserData *ud = UserData::instance();
         ud->generalSetting.timeServer = text;
@@ -211,7 +213,6 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     stopPlayCB->setChecked(checked);
     int index = setting.value(_("setting/music_index"), 0).value<int>();
     musicListCb->setCurrentIndex(index);
-    UserData *ud = UserData::instance();
     ud->generalSetting.musicPath = _("music/preset%1.mp3").arg(index);
 
     hlayout = new QHBoxLayout;
