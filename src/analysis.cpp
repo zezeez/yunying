@@ -704,9 +704,9 @@ bool Analysis::mayCandidate(const QVariantMap &stationMap, const QString &date)
                 QChar code = seatTypeDescTransToSubmitCode(selectedSeatTypeList[j]);
                 if (code != '0') {
                     if (trainList[ECANDIDATESEATLIMIT].contains(code)) {
-                        w->formatOutput(_("当前%1车次%2席别提交的候补订单较多，可更换车次、席别或稍后重试")
+                        /*w->formatOutput(_("当前%1车次%2席别提交的候补订单较多，可更换车次、席别或稍后重试")
                                             .arg(trainList[ESTATIONTRAINCODE],
-                                                 selectedSeatTypeList[j]));
+                                                 selectedSeatTypeList[j]));*/
                         continue;
                     }
                     tInfo.trainCode = trainList[ESTATIONTRAINCODE];

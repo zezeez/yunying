@@ -30,6 +30,7 @@ public:
     void onSmsVerificationLogin();
     bool verifyInput();
     void reset();
+    void qrCodeRefreshTimeout();
     void showLoadingQrCode();
     void showLoadedQrCode(const QVariantMap &varMap);
     void updateQrCodeStatus(int status);
@@ -52,6 +53,7 @@ public:
     QLabel *remindLabel2;
     QPushButton *loginPb;
     QTimer *qrCodeRefreshTimer;
+    QString qrCodeUuid;
 };
 
 #endif // LOGINDIALOG_H

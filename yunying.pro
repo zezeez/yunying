@@ -74,6 +74,7 @@ HEADERS += \
     include/trainnodialog.h \
     include/userdata.h \
     include/completeedit.h \
+    include/version.h \
     lib/ntp/include/ntp.h \
     lib/smtp/include/smtp.h \
     lib/sm4/include/sm4.h

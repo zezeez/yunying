@@ -365,6 +365,11 @@ void LoginDialog::reset()
     }
 }
 
+void LoginDialog::qrCodeRefreshTimeout()
+{
+    NetHelper::instance()->checkQrCode(qrCodeUuid);
+}
+
 void LoginDialog::showLoadingQrCode()
 {
     QWidget *widget = tabWidget->widget(1);
@@ -401,12 +406,10 @@ void LoginDialog::showLoadedQrCode(const QVariantMap &varMap)
     pixMap.loadFromData(image);
     label->setPixmap(pixMap);
     tipsLabel->setText(tr("打开12306手机APP扫描二维码"));
-    QString uuid = varMap[_("uuid")].toString();
+    qrCodeUuid = varMap[_("uuid")].toString();
     if (!qrCodeRefreshTimer) {
         qrCodeRefreshTimer = new QTimer;
-        connect(qrCodeRefreshTimer, &QTimer::timeout, this, [uuid]() {
-            NetHelper::instance()->checkQrCode(uuid);
-        });
+        connect(qrCodeRefreshTimer, &QTimer::timeout, this, &LoginDialog::qrCodeRefreshTimeout);
         qrCodeRefreshTimer->setInterval(1500);
     }
 

@@ -222,3 +222,27 @@ QString seatTypeSubmtiCodeTransToDesc(QChar seatType)
         return _("");
     }
 }
+
+QChar seatTypeEnumTransToSubmitCode(enum TrainInfoEnum seatType)
+{
+    const QVector<QChar> code = {
+        '0',
+        '6',
+        '0',
+        '4',
+        '2',
+        'P',
+        '0',
+        '0',
+        '3',
+        '1',
+        'O',
+        'M',
+        '9',
+        'F',
+    };
+    int idx = seatType - EGGNUM;
+    if (idx < 0 || idx >= code.size())
+        return '0';
+    return code[idx];
+}

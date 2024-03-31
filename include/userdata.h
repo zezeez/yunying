@@ -94,15 +94,15 @@ enum TrainInfoEnum {
     EQTNUM,  // 其他
     ERWNUM,  // 软卧
     ERZNUM,  // 软座
-    ETZNUM,  //
+    ETZNUM,  // 特等座
     EWZNUM,  // 无座
-    EYBNUM,  // 动卧
+    EYBNUM,  //
     EYWNUM,  // 硬卧
     EYZNUM,  // 硬座
     EZENUM,  // 二等座
     EZYNUM,  // 一等座
-    ESWZNUM,  // 商务座
-    ESRBNUM,  //
+    ESWZNUM,  // 商务座/特等座
+    ESRBNUM,  // 动卧
     EYPEX,
     ESEATTYPES,
     EEXCHANGETRAINFLAG,
@@ -442,5 +442,6 @@ public:
 };
 
 QString seatTypeSubmtiCodeTransToDesc(QChar seatType);
+QChar seatTypeEnumTransToSubmitCode(enum TrainInfoEnum seatType);
 
 #endif // USERDATA_H

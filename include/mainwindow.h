@@ -37,7 +37,7 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    void setRemainTicketColor(QString &remain, QStandardItem *item);
+    void setRemainTicketColor(QString &remain, QStandardItem *item, bool canCandidate);
 
 public slots:
     void userStartStationChanged();

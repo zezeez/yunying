@@ -5,9 +5,9 @@
 #include "lib/sm4/include/sm4.h"
 #include "loginconf.h"
 #include "logindialog.h"
-#include "sysutil.h"
 #include "analysis.h"
 #include "seatdialog.h"
+#include "version.h"
 #include <QRandomGenerator>
 #include <QPoint>
 #include <QUrl>
@@ -333,7 +333,7 @@ int NetHelper::replyIsOk(QNetworkReply *reply, QVariantMap &varMap)
 
     QByteArray contentType = reply->rawHeader(_("Content-Type").toLatin1());
 
-    if (contentType == _("application/json;charset=UTF-8")) {
+    if (contentType.startsWith("application/json")) {
         jsonDoc = QJsonDocument::fromJson(content, &error);
         if (error.error != QJsonParseError::NoError || jsonDoc.isNull()) {
             w->formatOutput(QStringLiteral("服务器返回数据JSON解析错误，错误位置：%1，错误码：%2，错误描述：%3")

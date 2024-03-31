@@ -50,10 +50,7 @@ int main(int argc, char *argv[])
 
     NetHelper::instance()->initLoginCookie();
     NetHelper::instance()->getLoginConf();
-    //w->show();
     NetHelper::instance()->checkUpdate();
-    //w->loginDialog->hideUserNamePasswd();
-    //w->loginDialog->showSmsVerification();
     w->loginDialog->show();
 
     return a.exec();

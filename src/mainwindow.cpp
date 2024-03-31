@@ -37,6 +37,7 @@
 #include <QDesktopServices>
 #include "icondelegate.h"
 #include "12306.h"
+#include "version.h"
 
 using namespace Qt;
 
@@ -403,7 +404,7 @@ void MainWindow::logoutSuccess()
 }
 
 
-void MainWindow::setRemainTicketColor(QString &remain, QStandardItem *item)
+void MainWindow::setRemainTicketColor(QString &remain, QStandardItem *item, bool canCandidate)
 {
     if (remain.isEmpty())
         return;
@@ -413,8 +414,11 @@ void MainWindow::setRemainTicketColor(QString &remain, QStandardItem *item)
         item->setForeground(QBrush(QColor(190, 190, 190)));
     else if (!remain.compare(_("--")))
         item->setForeground(Qt::black);
-    else
+    else {
         item->setForeground(QBrush(QColor(238, 154, 73)));
+        if (!remain.compare(_("候补")) && !canCandidate)
+            item->setForeground(QBrush(QColor(190, 190, 190)));
+    }
 }
 
 void MainWindow::addTrainToSelected()
@@ -483,18 +487,18 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
     QVector<QStringList> availableTrain;
     QVector<QStringList> invalidTrain;
     QString fromStationName, toStationName;
-    const QVector<QPair<int, int>> tableSeatTypeData = {
-             QPair<int, int>(ESPECIALSEATCOL, ESWZNUM),
-             QPair<int, int>(EFIRSTPRISEATCOL, EZYNUM),
-             QPair<int, int>(ESECONDPRISEATCOL, EZENUM),
-             QPair<int, int>(EADVSOFTCROUCHCOL, EGRNUM),
-             QPair<int, int>(ESOFTCROUCHCOL, ERWNUM),
-             QPair<int, int>(ESTIRCROUCHCOL, EYBNUM),
-             QPair<int, int>(EHARDCROUCHCOL, EYWNUM),
-             QPair<int, int>(ESOFTSEATCOL, ERZNUM),
-             QPair<int, int>(EHARDSEATCOL, EYZNUM),
-             QPair<int, int>(ENOSEATCOL, EWZNUM),
-             QPair<int, int>(EOTHERCOL, EQTNUM)
+    const QVector<QPair<int, enum TrainInfoEnum>> tableSeatTypeData = {
+             QPair<int, enum TrainInfoEnum>(ESPECIALSEATCOL, ESWZNUM),
+             QPair<int, enum TrainInfoEnum>(EFIRSTPRISEATCOL, EZYNUM),
+             QPair<int, enum TrainInfoEnum>(ESECONDPRISEATCOL, EZENUM),
+             QPair<int, enum TrainInfoEnum>(EADVSOFTCROUCHCOL, EGRNUM),
+             QPair<int, enum TrainInfoEnum>(ESOFTCROUCHCOL, ERWNUM),
+             QPair<int, enum TrainInfoEnum>(ESTIRCROUCHCOL, EYBNUM),
+             QPair<int, enum TrainInfoEnum>(EHARDCROUCHCOL, EYWNUM),
+             QPair<int, enum TrainInfoEnum>(ESOFTSEATCOL, ERZNUM),
+             QPair<int, enum TrainInfoEnum>(EHARDSEATCOL, EYZNUM),
+             QPair<int, enum TrainInfoEnum>(ENOSEATCOL, EWZNUM),
+             QPair<int, enum TrainInfoEnum>(EOTHERCOL, EQTNUM)
     };
     QVector<QStandardItem *> tableSeatTypeItems;
     QMap<char, QStandardItem *> tableSeatTypeItemsMap;
@@ -750,11 +754,24 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             }
 
             if (uc.showTicketPrice == false) {
+                bool canCandidate = false;
                 curText = trainInfo[seatTypeData.second].isEmpty() ? _("--") :
                                   trainInfo[seatTypeData.second];
+                if (!trainInfo[ESECRETSTR].isEmpty() && trainInfo[ECANDIDATETRAINFLAG] == _("1") &&
+                    curText == _("无")) {
+                    QChar seatTypeCode = seatTypeEnumTransToSubmitCode(seatTypeData.second);
+                    if (seatTypeCode != '0') {
+                        curText = _("候补");
+                        if (!trainInfo[ECANDIDATESEATLIMIT].contains(seatTypeCode)) {
+                            canCandidate = true;
+                        }
+                    }
+                }
                 if (item->text() != curText) {
                     item->setText(curText);
-                    setRemainTicketColor(curText, item);
+                    setRemainTicketColor(curText, item, canCandidate);
+                    item->setData(canCandidate, Qt::WhatsThisRole);
+                    item->setData(curText, Qt::StatusTipRole);
                     item->setTextAlignment(Qt::AlignCenter);
                 }
             }
@@ -813,7 +830,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             tableSeatTypeItemsMap.insert('2', tableSeatTypeItems[7]);
             tableSeatTypeItemsMap.insert('1', tableSeatTypeItems[8]);
 
-            for (auto &seatTypeData : tableSeatTypeData) {
+            /*for (auto &seatTypeData : tableSeatTypeData) {
                 tableSeatTypeItems[seatTypeData.first - ESPECIALSEATCOL]->setData(
                     0, Qt::StatusTipRole);
             }
@@ -821,7 +838,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 tableSeatTypeItems[seatTypeData.first - ESPECIALSEATCOL]->setData(
                     trainInfo[seatTypeData.second].isEmpty() ? _("--") :
                         trainInfo[seatTypeData.second], Qt::StatusTipRole);
-            }
+            }*/
             for (int j = 0; j < ypInfoNewSize; j += 10) {
                 if (j + 10 > ypInfoNewSize) {
                     break;
@@ -1377,6 +1394,7 @@ void MainWindow::switchTableTicketShowType(bool showTicketPrice)
         EOTHERCOL
     };
     int role;
+    bool canCandidate;
     if (showTicketPrice) {
         role = Qt::ToolTipRole;
     } else {
@@ -1394,7 +1412,8 @@ void MainWindow::switchTableTicketShowType(bool showTicketPrice)
                     if (showTicketPrice) {
                         item->setForeground(QBrush(QColor(238, 118, 33)));
                     } else {
-                        setRemainTicketColor(text, item);
+                        canCandidate = item->data(Qt::WhatsThisRole).toBool();
+                        setRemainTicketColor(text, item, canCandidate);
                     }
                 } else {
                     item->setText(_("--"));

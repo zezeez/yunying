@@ -94,7 +94,7 @@ void Ntp::send()
     QCryptographicHash hash(QCryptographicHash::Md5);
     hash.addData(data);
     QByteArray resultMd5 =hash.result();
-    qDebug() << resultMd5.toHex() << " " << resultMd5.size();
+    //qDebug() << resultMd5.toHex() << " " << resultMd5.size();
     //qToBigEndian<quint8>(resultMd5.data(), resultMd5.size() < 16 ? resultMd5.size(): 16, p.digest);
     quint64 buf[2];
     memcpy(buf, resultMd5.data(), resultMd5.size() < 16 ? resultMd5.size(): 16);
@@ -137,7 +137,7 @@ void Ntp::receive()
                                                           correctTime.toString(_("yyyy-MM-dd hh:mm:ss.zzz"))));
     qDebug() << _("当前系统时间: %1，服务器时间: %2").arg(sysTime.toString(_("yyyy-MM-dd hh:mm:ss.zzz")),
                                                           correctTime.toString(_("yyyy-MM-dd hh:mm:ss.zzz")));
-    if (qAbs(sysTime.msecsTo(correctTime)) > 100) {
+    if (qAbs(sysTime.msecsTo(correctTime)) > 10) {
         w->formatOutput(_("正在更新系统时间..."));
         SysUtil::setSysTime(correctTime);
     }
