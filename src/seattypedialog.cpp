@@ -70,7 +70,7 @@ void SeatTypeDialog::setUp()
     seatTypeStrVec.push_back(QStringLiteral("无座"));*/
 
     QSettings setting;
-    QList<QVariant> selSeatTypeList = setting.value(_("seat_type/selected_seat_type")).toList();
+    QList<QString> selSeatTypeList = setting.value(_("seat_type/selected_seat_type")).toStringList();
     for (auto &seatType : selSeatTypeList) {
         QListWidgetItem *item = new QListWidgetItem(selected);
         item->setData(Qt::DisplayRole, seatType);

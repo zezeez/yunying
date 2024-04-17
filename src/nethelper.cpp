@@ -147,12 +147,9 @@ void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack 
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
 #ifdef HAS_CDN
-    UserData *ud = UserData::instance();
-    if (ud->generalSetting.cdnEnable) {
-        QString mainCdn = cdn.getMainCdn();
-        if (!mainCdn.isEmpty()) {
-            request.setIpAddress(mainCdn);
-        }
+    QString mainCdn = cdn.getMainCdn();
+    if (!mainCdn.isEmpty()) {
+        request.setIpAddress(mainCdn);
     }
     request.setPeerVerifyName(_("kyfw.12306.cn"));
 #endif
@@ -169,6 +166,13 @@ void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack 
     QNetworkRequest request;
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
+#ifdef HAS_CDN
+    QString mainCdn = cdn.getMainCdn();
+    if (!mainCdn.isEmpty()) {
+        request.setIpAddress(mainCdn);
+    }
+    request.setPeerVerifyName(_("kyfw.12306.cn"));
+#endif
     setHeader(url, request);
     QList<std::pair<QString, QString>>::const_iterator it;
     for (it = headers.cbegin(); it != headers.cend(); ++it) {
@@ -201,15 +205,12 @@ void NetHelper::get(const QUrl &url, replyCallBack rcb)
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
 #ifdef HAS_CDN
-    UserData *ud = UserData::instance();
-    if (ud->generalSetting.cdnEnable) {
-        QString cur = cdn.getCurCdn();
-        QString next = cdn.getNextCdn();
-        if (!next.isEmpty()) {
-            request.setIpAddress(next);
-            if (cur != next) {
-                nam->clearConnectionCache();
-            }
+    QString cur = cdn.getCurCdn();
+    QString next = cdn.getNextCdn();
+    if (!next.isEmpty()) {
+        request.setIpAddress(next);
+        if (cur != next) {
+            nam->clearConnectionCache();
         }
     }
     request.setPeerVerifyName(_("kyfw.12306.cn"));
@@ -425,6 +426,12 @@ void NetHelper::onLogin()
     QUrl url = QStringLiteral(CHECK_LOGIN_PASSPORT_URL);
     ReqParam param;
     UserData *ud = UserData::instance();
+#ifdef HAS_CDN
+    QString h = cdn.getRandomCdn();
+    if (!h.isEmpty()) {
+        cdn.setMainCdn(h);
+    }
+#endif
     LoginConf loginConf = LoginConf::instance();
     if (loginConf.isUamLogin) {
         param.put(_("username"), ud->getUserLoginInfo().userName);
@@ -450,6 +457,12 @@ void NetHelper::onSmsVerificationLogin(const QString &verification_code)
     encode_passwd = sm4_encrypt_ecb(ud->getUserLoginInfo().passwd, SM4_KEY_SECRET);
     param.put(_("password"), '@' + encode_passwd.toUtf8().toPercentEncoding());
     param.put(_("appid"), _(PASSPORT_APPID));
+#ifdef HAS_CDN
+    QString h = cdn.getRandomCdn();
+    if (!h.isEmpty()) {
+        cdn.setMainCdn(h);
+    }
+#endif
     LoginConf &loginConf = LoginConf::instance();
     if (loginConf.isUamLogin) {
         // 统一认证登录+短信验证
@@ -635,12 +648,6 @@ void NetHelper::loginSuccess()
     //w->showStatusBarMessage(_("当前用户：%1").arg(UserData::instance()->getUserLoginInfo().account));
     w->uamLogined();
     getPassengerInfo();
-#ifdef HAS_CDN
-    UserData *ud = UserData::instance();
-    if (ud->generalSetting.cdnEnable) {
-        getCdn();
-    }
-#endif
 }
 
 void NetHelper::logout()
@@ -660,7 +667,12 @@ void NetHelper::createQrCode()
 {
     ReqParam data;
     QUrl url = QStringLiteral(QR64);
-
+#ifdef HAS_CDN
+    QString h = cdn.getRandomCdn();
+    if (!h.isEmpty()) {
+        cdn.setMainCdn(h);
+    }
+#endif
     data.put(_("appid"), _(PASSPORT_APPID));
     post(url, data, &NetHelper::createQrCodeReply);
     w->loginDialog->showLoadingQrCode();
@@ -1012,15 +1024,7 @@ void NetHelper::checkUser()
     QUrl url(QStringLiteral(LOGINCHECKUSER));
     ReqParam param;
     param.put(_("_json_att"), _(""));
-#ifdef HAS_CDN
-    UserData *ud = UserData::instance();
-    if (ud->generalSetting.cdnEnable) {
-        QString h = cdn.getCurCdn();
-        if (!h.isEmpty()) {
-            cdn.setMainCdn(h);
-        }
-    }
-#endif
+
     post(url, param, &NetHelper::checkUserReply);
 }
 

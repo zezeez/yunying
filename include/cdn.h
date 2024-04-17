@@ -21,6 +21,7 @@ public:
     QString getMainCdn();
     QString getNextCdn();
     QString getCurCdn();
+    QString getRandomCdn();
     void socketStateChanged();
     void socketEncrypted();
     void socketError();

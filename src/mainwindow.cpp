@@ -632,9 +632,9 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 can_booking++;
             }
         }
-        if (trainInfo[ECANWEBBUY] == _("IS_TIME_NOT_BUY")) {
+        if (trainInfo[ESECRETSTR].isEmpty() && trainInfo[ECANWEBBUY] == _("IS_TIME_NOT_BUY")) {
             invalidTrain.push_back(trainInfo);
-            useTrainListSize--;
+            //useTrainListSize--;
             continue;
         }
 
@@ -796,9 +796,10 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
 
         button = dynamic_cast<QPushButton *>(tableView->indexWidget(model->index(itemIdx, EREMARKCOL)));
         if (!button) {
-            button = new QPushButton(tr("添加"));
+            button = new QPushButton;
             connect(button, &QPushButton::clicked, this, &MainWindow::addTrainToSelected);
         }
+        button->setText(trainInfo[ETEXTINFO] == _("预订") ? tr("添加") : trainInfo[ETEXTINFO]);
         if (ud->runStatus != EIDLE) {
             //button->setStyleSheet(QStringLiteral("QPushButton { background-color: #A9A9A9; color: #4F4F4F; }"));
             button->setEnabled(false);

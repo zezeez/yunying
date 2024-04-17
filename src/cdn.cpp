@@ -1,5 +1,7 @@
 #ifdef HAS_CDN
 #include "cdn.h"
+#include "userdata.h"
+#include <QRandomGenerator>
 
 Cdn::Cdn(QObject *parent) : QObject(parent)
 {
@@ -42,6 +44,8 @@ void Cdn::testCdnTimeout()
     if (!allCdn.isEmpty()) {
         if (ssl->state() == QAbstractSocket::UnconnectedState) {
             startTest();
+        } else {
+            socketError();
         }
     } else {
         if (ssl) {
@@ -59,20 +63,21 @@ void Cdn::socketStateChanged()
 
 void Cdn::socketEncrypted()
 {
-    if (allCdn.isEmpty())
-        return;
-    avaliableCdn.append(allCdn.front());
-    qDebug() << "add ava host: " << allCdn.front();
-    allCdn.pop_front();
+    if (!allCdn.isEmpty()) {
+        avaliableCdn.append(allCdn.front());
+        qDebug() << "add ava host: " << allCdn.front();
+        allCdn.pop_front();
+    }
     ssl->disconnectFromHost();
 }
 
 void Cdn::socketError()
 {
-    if (allCdn.isEmpty())
-        return;
-    allCdn.pop_front();
+    if (!allCdn.isEmpty()) {
+        allCdn.pop_front();
+    }
     ssl->disconnectFromHost();
+    ssl->close();
 }
 
 void Cdn::sslError()
@@ -87,12 +92,18 @@ void Cdn::readyRead()
 
 void Cdn::addCdn(const QString &cdn)
 {
-    allCdn.append(cdn);
+    UserData *ud = UserData::instance();
+    if (ud->generalSetting.cdnEnable) {
+        allCdn.append(cdn);
+    }
 }
 
 void Cdn::addCdns(const QStringList &cdnList)
 {
-    allCdn.append(cdnList);
+    UserData *ud = UserData::instance();
+    if (ud->generalSetting.cdnEnable) {
+        allCdn.append(cdnList);
+    }
 }
 
 void Cdn::startTest()
@@ -111,7 +122,11 @@ void Cdn::startTest()
 
 void Cdn::setMainCdn(const QString &cdn)
 {
-    mainCdn = cdn;
+    UserData *ud = UserData::instance();
+    if (ud->generalSetting.cdnEnable) {
+        mainCdn = cdn;
+        qDebug() << "main cdn: " << cdn;
+    }
 }
 
 void Cdn::removeMainCdn()
@@ -121,12 +136,17 @@ void Cdn::removeMainCdn()
 
 QString Cdn::getMainCdn()
 {
+    UserData *ud = UserData::instance();
+    if (!ud->generalSetting.cdnEnable) {
+        return "";
+    }
     return mainCdn;
 }
 
 QString Cdn::getNextCdn()
 {
-    if (avaliableCdn.isEmpty()) {
+    UserData *ud = UserData::instance();
+    if (avaliableCdn.isEmpty() || !ud->generalSetting.cdnEnable) {
         return "";
     }
     avaCdnIndex = avaCdnIndex < avaliableCdn.size() - 1 ? avaCdnIndex + 1 : 0;
@@ -135,9 +155,22 @@ QString Cdn::getNextCdn()
 
 QString Cdn::getCurCdn()
 {
-    if (avaliableCdn.isEmpty()) {
+    UserData *ud = UserData::instance();
+    if (avaliableCdn.isEmpty() || !ud->generalSetting.cdnEnable) {
         return "";
     }
     return avaliableCdn[avaCdnIndex];
 }
+
+QString Cdn::getRandomCdn()
+{
+    UserData *ud = UserData::instance();
+    if (avaliableCdn.isEmpty() || !ud->generalSetting.cdnEnable) {
+        return "";
+    }
+    std::uniform_int_distribution<int> dist(0, avaliableCdn.size() - 1);
+    int idx = dist(*QRandomGenerator::global());
+    return avaliableCdn[idx];
+}
+
 #endif
