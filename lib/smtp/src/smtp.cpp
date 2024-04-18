@@ -363,8 +363,8 @@ SmtpEmail::SmtpEmail(QObject *parent) : SmtpBase(parent)
             return std::pair<enum SMTPSTATUS, std::string>(EEND, "");
         }
         // 设置邮件接收者的邮箱地址
-        int recvListSize = emailQueue.front().recvList.size();
-        int total = recvListSize + emailQueue.front().ccEmail.size();
+        int recvListSize = (int)emailQueue.front().recvList.size();
+        int total = recvListSize + (int)emailQueue.front().ccEmail.size();
 
         std::string command;
         if (curReceiver < recvListSize) {

@@ -103,6 +103,8 @@ public:
     void checkUserReply(QNetworkReply *reply);
     void initDc();
     void initDcReply(QNetworkReply *reply);
+    void initMy12306Api();
+    void initMy12306ApiReply(QNetworkReply *reply);
     void handleError();
     void submitOrderRequest();
     void submitOrderRequestReply(QNetworkReply *reply);

@@ -403,6 +403,11 @@ void NetHelper::getLoginConfReply(QNetworkReply *reply)
     lconf.isLogin = value == _("Y");
     value = dataMap[_("is_message_passCode")].toString();
     lconf.isMessagePasscode =  value.length() == 0 || value == _("Y") ? true : false;
+    value = dataMap[_("queryUrl")].toString();
+    if (!value.isEmpty()) {
+        queryLeftTicketUrl = _(BASEURL PUBLICNAME) + '/' + value;
+        qDebug() << "new left ticket query url: " << value;
+    }
 
     if (lconf.isUamLogin) {
         isUamLogin();
@@ -1122,6 +1127,33 @@ void NetHelper::initDcReply(QNetworkReply *reply)
         return;
     }
     checkOrderInfo();
+}
+
+void NetHelper::initMy12306Api()
+{
+    QUrl url = QStringLiteral(INITMY12306API);
+    ReqParam param;
+    post(url, param, &NetHelper::initMy12306ApiReply);
+    qDebug() << __FUNCTION__;
+}
+
+void NetHelper::initMy12306ApiReply(QNetworkReply *reply)
+{
+#if 0
+    QVariantMap varMap;
+    if (replyIsOk(reply, varMap) < 0) {
+        handleError();
+        return;
+    }
+    bool status = varMap[QStringLiteral("status")].toBool();
+    if (!status) {
+        return;
+    }
+    QVariantMap data = varMap[QStringLiteral("data")].toMap();
+    if (data.isEmpty()) {
+        return;
+    }
+#endif
 }
 
 void NetHelper::handleError()
@@ -2459,7 +2491,7 @@ void NetHelper::checkUpdate()
 #else
     platform = "Linux";
 #endif
-    QUrl url(_("http://101.201.78.185:8080/api/checkUpdate?ver=%1&platform=%2")
+    QUrl url(_(CHECKUPDATEURL "?ver=%1&platform=%2")
                  .arg(THISVERSION, platform));
     anyGet(url, &NetHelper::checkUpdateReply);
 }

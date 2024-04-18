@@ -38,6 +38,7 @@
 #define LOGINSLIDE BASEURL PUBLICNAME "/slide/loginSlide"
 
 #define USERLOGIN  BASEURL PUBLICNAME "/login/userLogin"
+#define INITMY12306API  BASEURL PUBLICNAME "/index/initMy12306Api"
 
 // 扫码登录
 #define QR BASEURL "/passport/web/create-qr"

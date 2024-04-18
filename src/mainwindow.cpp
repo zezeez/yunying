@@ -660,6 +660,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         if (item->text() != curText) {
             item->setText(curText);
             item->setToolTip(curText);
+            item->setForeground(QBrush(QColor(99, 184, 255)));
         }
         item->setData(trainInfo[ETRAINNO], Qt::UserRole);
 
@@ -710,6 +711,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             item->setText(toStationName);
             item->setToolTip(toStationName);
             item->setData(toStationName, Qt::ToolTipRole);
+            //item->setForeground(QBrush(QColor(99, 184, 255)));
         }
         item->setData(trainInfo[ETOSTATIONTELECODE] == trainInfo[EENDSTATIONTELECODE], Qt::DecorationRole);
         item->setData(trainInfo[ETOSTATIONTELECODE], Qt::UserRole);
@@ -723,6 +725,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         }
         if (item->text() != trainInfo[ESTARTTIME]) {
             item->setText(trainInfo[ESTARTTIME]);
+            item->setForeground(QBrush(QColor(205, 104, 137)));
         }
 
         item = model->item(itemIdx, EARRIVETIMECOL);
@@ -734,6 +737,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         }
         if (item->text() != trainInfo[EARRIVETIME]) {
             item->setText(trainInfo[EARRIVETIME]);
+            item->setForeground(QBrush(QColor(205, 104, 137)));
         }
 
         item = model->item(itemIdx, EUSEDTIMECOL);
@@ -744,6 +748,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         }
         if (item->text() != trainInfo[ESPENDTIME]) {
             item->setText(trainInfo[ESPENDTIME]);
+            item->setForeground(QBrush(QColor(122, 139, 139)));
         }
 
         for (auto &seatTypeData : tableSeatTypeData) {
@@ -909,6 +914,11 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         for (int k = ESTARTTIMECOL; k < EREMARKCOL; k++) {
             model->setItem(itemIdx, k, item = new QStandardItem(_("--")));
             item->setTextAlignment(Qt::AlignCenter);
+        }
+        QPushButton *button = dynamic_cast<QPushButton *>(tableView->indexWidget(model->index(itemIdx, EREMARKCOL)));
+        if (button) {
+            disconnect(button, &QPushButton::clicked, this, &MainWindow::addTrainToSelected);
+            tableView->setIndexWidget(model->index(itemIdx, EREMARKCOL), nullptr);
         }
         model->setItem(itemIdx, EREMARKCOL, item = new QStandardItem(trainInfo[ETEXTINFO]));
         item->setTextAlignment(Qt::AlignCenter);

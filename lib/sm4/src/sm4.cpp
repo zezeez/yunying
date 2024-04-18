@@ -132,9 +132,10 @@ uint8_t *pad_to_sm4_block_size(const QString &plain, size_t *pad_size)
     for (i = 0, it = plain.cbegin(); it != plain.cend(); ++it, ++i) {
         buf[i] = it->toLatin1();
     }
-    for (i = 0; i < pad; i++) {
+    memset(&buf[len], (uint8_t)pad, pad);
+    /*for (i = 0; i < pad; i++) {
         buf[i + len] = pad;
-    }
+    }*/
     *pad_size = len + pad;
     return buf;
 }
