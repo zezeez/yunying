@@ -57,6 +57,8 @@ public:
     void anyPost(const QUrl &url, ReqParam &param, replyCallBack rcb);
     void get(const QUrl &url, replyCallBack rcb);
     void get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
+    void get2(const QUrl &url, replyCallBack rcb);
+    void get2(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
     void anyGet(const QUrl &url, replyCallBack rcb);
     void ignoreReply(QNetworkReply *reply);
     void initLoginCookie();
@@ -197,8 +199,8 @@ public:
     QTimer *keepLoginTimer;
 #ifdef HAS_CDN
     Cdn cdn;
-#endif
     ServerIp sip;
+#endif
 };
 
 

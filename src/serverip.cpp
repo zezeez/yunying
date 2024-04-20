@@ -29,16 +29,38 @@ QStringList dnsServers = {
 
 ServerIp::ServerIp(QObject *parent) : QObject(parent)
 {
-    udp = new QUdpSocket;
-    connect(udp, &QUdpSocket::readyRead,
-            this, &ServerIp::recvDnsAnswer);
-    connect(udp, &QUdpSocket::stateChanged,
-            this, &ServerIp::socketStateChanged);
+    udp = nullptr;
+    connect(&recycleTimer, &QTimer::timeout, this, &ServerIp::destoryUdp);
+    recycleTimer.setInterval(30 * 1000);
 }
 
 ServerIp::~ServerIp()
 {
-    delete udp;
+    if (udp) {
+        delete udp;
+        recycleTimer.stop();
+    }
+}
+
+void ServerIp::setupUdp()
+{
+    if (!udp) {
+        udp = new QUdpSocket;
+        connect(udp, &QUdpSocket::readyRead,
+                this, &ServerIp::recvDnsAnswer);
+        connect(udp, &QUdpSocket::stateChanged,
+                this, &ServerIp::socketStateChanged);
+        recycleTimer.start();
+    }
+}
+
+void ServerIp::destoryUdp()
+{
+    if (udp) {
+        delete udp;
+        udp = nullptr;
+    }
+    recycleTimer.stop();
 }
 
 void ServerIp::socketStateChanged(QAbstractSocket::SocketState state)
@@ -57,6 +79,8 @@ void ServerIp::dnsAnswer(const QString hostName)
     m.addQuery(qs);
     int id = 0;
     char bufSend[UDPBUFFSIZE];
+
+    setupUdp();
 
     for (auto &server : dnsServers) {
         m.setId(++id);

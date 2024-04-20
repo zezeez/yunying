@@ -105,6 +105,8 @@ RESOURCES += \
 DISTFILES += \
     main.qss
 
+RC_ICONS = images/ticket.ico
+
 #win32 {
 #    LIBS += -lUser32
 #}

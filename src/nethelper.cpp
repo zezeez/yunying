@@ -100,7 +100,9 @@ NetHelper::NetHelper(QObject *parent) : QObject(parent),
     connect(keepLoginTimer, &QTimer::timeout, this, &NetHelper::keepLogin);
     keepLoginTimer->setInterval(5 * 60 * 1000);
 
+#ifdef HAS_CDN
     sip.dnsAnswer("kyfw.12306.cn");
+#endif
 }
 
 NetHelper *NetHelper::instance()
@@ -138,33 +140,12 @@ void NetHelper::setCookieHeader(const QUrl &url, QNetworkRequest &request)
     }
 }
 
-
 void NetHelper::setHeader(const QUrl &url, QNetworkRequest &request)
 {
     request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
     request.setRawHeader("User-Agent", USERAGENT);
     request.setRawHeader("Host", "kyfw.12306.cn");
     setCookieHeader(url, request);
-}
-
-void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb)
-{
-    QNetworkRequest request;
-    request.setUrl(url);
-    request.setTransferTimeout(REQUESTTIMEOUT);
-#ifdef HAS_CDN
-    QString mainCdn = cdn.getMainCdn();
-    if (!mainCdn.isEmpty()) {
-        request.setIpAddress(mainCdn);
-    }
-    request.setPeerVerifyName(_("kyfw.12306.cn"));
-#endif
-    setHeader(url, request);
-    param.finish();
-    QNetworkReply *reply = nam->post(request, param.get().toUtf8());
-    replyMap.insert(reply, rcb);
-    QDateTime time = QDateTime::currentDateTime();
-    rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
 
 void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
@@ -191,6 +172,12 @@ void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack 
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
 
+void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb)
+{
+    QList<std::pair<QString, QString>> headers;
+    post(url, param, rcb, headers);
+}
+
 void NetHelper::anyPost(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb)
 {
     QNetworkRequest request;
@@ -205,31 +192,37 @@ void NetHelper::anyPost(const QUrl &url, ReqParam &param, NetHelper::replyCallBa
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
 
-void NetHelper::get(const QUrl &url, replyCallBack rcb)
+void NetHelper::get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
 {
     QNetworkRequest request;
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
 #ifdef HAS_CDN
-    QString cur = cdn.getCurCdn();
-    QString next = cdn.getNextCdn();
-    if (!next.isEmpty()) {
-        request.setIpAddress(next);
-        if (cur != next) {
-            nam->clearConnectionCache();
-        }
+    QString mainCdn = cdn.getMainCdn();
+    if (!mainCdn.isEmpty()) {
+        request.setIpAddress(mainCdn);
     }
     request.setPeerVerifyName(_("kyfw.12306.cn"));
 #endif
     qDebug() << request.ipAddress();
     setHeader(url, request);
+    QList<std::pair<QString, QString>>::const_iterator it;
+    for (it = headers.cbegin(); it != headers.cend(); ++it) {
+        request.setRawHeader(it->first.toLatin1(), it->second.toLatin1());
+    }
     QNetworkReply *reply = nam->get(request);
     replyMap.insert(reply, rcb);
     QDateTime time = QDateTime::currentDateTime();
     rttMap.insert(reply, time.toMSecsSinceEpoch());
 }
 
-void NetHelper::get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
+void NetHelper::get(const QUrl &url, replyCallBack rcb)
+{
+    QList<std::pair<QString, QString>> headers;
+    get(url, rcb, headers);
+}
+
+void NetHelper::get2(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
 {
     QNetworkRequest request;
     request.setUrl(url);
@@ -255,6 +248,12 @@ void NetHelper::get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString,
     replyMap.insert(reply, rcb);
     QDateTime time = QDateTime::currentDateTime();
     rttMap.insert(reply, time.toMSecsSinceEpoch());
+}
+
+void NetHelper::get2(const QUrl &url, replyCallBack rcb)
+{
+    QList<std::pair<QString, QString>> headers;
+    get2(url, rcb, headers);
 }
 
 void NetHelper::anyGet(const QUrl &url, replyCallBack rcb)
@@ -362,8 +361,12 @@ int NetHelper::replyIsOk(QNetworkReply *reply, QVariantMap &varMap)
             return -1;
         }
     } else {
-        w->formatOutput(QStringLiteral("服务器返回错误"));
-        qDebug() << QString::fromUtf8(content);
+        //w->formatOutput(QStringLiteral("服务器返回错误"));
+        varMap.insert(_("data"), content);
+        QString s = QString::fromUtf8(content);
+        if (s.contains(_("网络可能存在问题，请您重试一下"))) {
+            w->formatOutput(_("服务器应答异常，可能此设备已被暂时限制访问"));
+        }
         netStatInc(EBADREPLY);
         return -1;
     }
@@ -482,12 +485,7 @@ void NetHelper::onSmsVerificationLogin(const QString &verification_code)
     encode_passwd = sm4_encrypt_ecb(ud->getUserLoginInfo().passwd, SM4_KEY_SECRET);
     param.put(_("password"), '@' + encode_passwd.toUtf8().toPercentEncoding());
     param.put(_("appid"), _(PASSPORT_APPID));
-#ifdef HAS_CDN
-    QString h = cdn.getRandomCdn();
-    if (!h.isEmpty()) {
-        cdn.setMainCdn(h);
-    }
-#endif
+
     LoginConf &loginConf = LoginConf::instance();
     if (loginConf.isUamLogin) {
         // 统一认证登录+短信验证
@@ -553,7 +551,7 @@ void NetHelper::isUamLoginReply(QNetworkReply *reply)
 
     int result_code = response[_("result_code")].toInt();
     if (result_code == 0) {
-        loginSuccess();
+        passportUamtk();
     } else {
         w->uamNotLogined();
         keepLoginTimer->stop();
@@ -807,7 +805,7 @@ void NetHelper::queryTicket()
     QList<std::pair<QString, QString>> headers;
     headers.append(std::pair<QString, QString>("If-Modified-Since", "0"));
     headers.append(std::pair<QString, QString>("Cache-Control", "no-cache"));
-    get(url, &NetHelper::queryTicketReply, headers);
+    get2(url, &NetHelper::queryTicketReply, headers);
 }
 
 void NetHelper::queryTicketReply(QNetworkReply *reply)
@@ -847,7 +845,7 @@ void NetHelper::queryDiffDateTicket(const QString &date)
     QList<std::pair<QString, QString>> headers;
     headers.append(std::pair<QString, QString>("If-Modified-Since", "0"));
     headers.append(std::pair<QString, QString>("Cache-Control", "no-cache"));
-    get(url, &NetHelper::queryDiffDateTicketReply, headers);
+    get2(url, &NetHelper::queryDiffDateTicketReply, headers);
 }
 
 void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
@@ -1085,7 +1083,15 @@ void NetHelper::checkUserReply(QNetworkReply *reply)
     qDebug() << __FUNCTION__;
     if (replyIsOk(reply, varMap) < 0) {
         handleError();
-        qDebug() << "reply is not ok";
+        QByteArray b = varMap[_("data")].toByteArray();
+        if (!b.isEmpty()) {
+            QString s = QString::fromUtf8(b);
+            if (s.contains(_("/otn/login/init"))) {
+                w->formatOutput(_("当前登陆状态已失效，需要重新登陆"));
+                w->startOrStopGrabTicket();
+                getLoginConf();
+            }
+        }
         return;
     }
 
@@ -1100,6 +1106,7 @@ void NetHelper::checkUserReply(QNetworkReply *reply)
     if (!flag) {
         handleError();
         getLoginConf();
+        w->formatOutput(_("当前登陆状态已失效，需要重新登陆"));
         w->startOrStopGrabTicket();
         qDebug() << "flag is false";
         return;
@@ -1196,11 +1203,27 @@ void NetHelper::initMy12306Api()
 
 void NetHelper::initMy12306ApiReply(QNetworkReply *reply)
 {
-#if 0
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
+        QByteArray b = varMap[_("data")].toByteArray();
+        if (!b.isEmpty()) {
+            QString s = QString::fromUtf8(b);
+            if (s.contains(_("/otn/login/init"))) {
+                UserData *ud = UserData::instance();
+                w->formatOutput(_("当前登陆状态已失效，需要重新登陆"));
+                if (ud->runStatus != EIDLE) {
+                    if (ud->runStatus == ESUBMITORDER) {
+                        handleError();
+                    }
+                    w->startOrStopGrabTicket();
+                }
+                getLoginConf();
+            }
+        }
         return;
     }
+    //qDebug() << varMap;
+#if 0
     bool status = varMap[QStringLiteral("status")].toBool();
     if (!status) {
         return;
@@ -1875,14 +1898,7 @@ void NetHelper::handlecandidateError()
 void NetHelper::candidateEntry(const struct CandidateDateInfo &dInfo)
 {
     UserData *ud = UserData::instance();
-#ifdef HAS_CDN
-    if (ud->generalSetting.cdnEnable && cdn.getMainCdn().isEmpty()) {
-        QString h = cdn.getCurCdn();
-        if (!h.isEmpty()) {
-            cdn.setMainCdn(h);
-        }
-    }
-#endif
+
     if (ud->candidateInfo.diffDateTrain.isEmpty()) {
         chechFace(dInfo);
     } else {
@@ -2422,8 +2438,8 @@ void NetHelper::sendMail()
             mailContent += _("</tr>");
         }
         mailContent += "</table>"
-            "<p>您收到此通知是因为您在<a href=\"https://www.op9.top\">云映程序</a>配置了此邮箱，"
-            "如您未使用<a href=\"https://www.op9.top\">云映程序</a>进行过相关配置或未授权他人使用此邮箱，请忽略本邮件。</p>"
+            "<p>您收到此通知是因为您在<a href=\"http://www.op9.top\">云映程序</a>配置了此邮箱，"
+            "如您未使用<a href=\"http://www.op9.top\">云映程序</a>进行过相关配置或未授权他人使用此邮箱，请忽略本邮件。</p>"
             "</body>"
             "</html>";
         w->settingDialog->sendMail(mailContent);

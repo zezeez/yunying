@@ -649,17 +649,6 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             continue;
         }
 
-        //QWidget *trainWidget = new QWidget;
-        //QHBoxLayout *hlayout=new QHBoxLayout;
-        //QCheckBox *trainCBox = new QCheckBox;
-        //trainCBox->setObjectName("singleCheck");
-        //QLabel *label = new QLabel(trainInfo[ESTATIONTRAINCODE]);
-        //item = new QStandardItem();
-        //hlayout->addWidget(trainCBox);
-        //hlayout->addWidget(label);
-        //model->setItem(i, ETRAINNUM, );
-        //tableView->setIndexWidget(model->index(i, 0), trainWidget);
-
         curText = trainInfo[ESTATIONTRAINCODE].isEmpty() ?
                       "--" : trainInfo[ESTATIONTRAINCODE];
         item = model->item(itemIdx, ETRAINNOCOL);
@@ -674,25 +663,6 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             item->setForeground(QBrush(QColor(99, 184, 255)));
         }
         item->setData(trainInfo[ETRAINNO], Qt::UserRole);
-
-/*
-        if (isFunXing) {
-            QIcon icon;
-            QPixmap pixmap;
-            pixmap.load(_(":/icon/images/ticket.ico"));
-            icon.addPixmap(pixmap);
-            item->setData(icon, Qt::DecorationRole);
-            item->setData(trainInfo[ESTATIONTRAINCODE], Qt::DisplayRole);
-        } else if (isZiNeng) {
-            //QIcon icon(_(":/icon/images/zineng.png"));
-            QIcon icon;
-            QPixmap pixmap;
-            pixmap.load(_(":/icon/images/ticket.ico"));
-            icon.addPixmap(pixmap);
-            item->setData(icon, Qt::DecorationRole);
-            item->setData(trainInfo[ESTATIONTRAINCODE], Qt::DisplayRole);
-        }
-*/
 
         item = model->item(itemIdx, EFROMSTATIONCOL);
         if (!item) {
@@ -1072,11 +1042,6 @@ void MainWindow::processStopStationReply(QVariantMap &data)
         for (int i = 0; i < data2.length(); i++) {
             QVariantMap data3 = data2[i].toMap();
             QString s;
-            /*
-            if (i == 0) {
-                s = data3[_("service_type")].toString();
-                QTableWidgetItem *item = new QTableWidgetItem(tr(s == _("0") ? _("")))
-            }*/
             if (i == 0) {
                 s = data3[_("station_train_code")].toString();
                 disp += s + _("  ");
@@ -1085,6 +1050,8 @@ void MainWindow::processStopStationReply(QVariantMap &data)
                 s = data3[_("end_station_name")].toString();
                 disp += s + _("  ");
                 s = data3[_("train_class_name")].toString();
+                disp += s.isEmpty() ? _("  ") : s + _("  ");
+                s = data3[_("service_type")].toString();
                 disp += s == '0' ? _("无空调") : _("有空调");
             }
             int j = 0;
@@ -1095,7 +1062,7 @@ void MainWindow::processStopStationReply(QVariantMap &data)
                 j++;
             }
         }
-        QDialog m;
+        QDialog m(this);
         QLabel l(disp);
         QVBoxLayout vlayout;
         if (tw->rowCount()) {

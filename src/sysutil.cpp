@@ -87,7 +87,7 @@ int SysUtil::setSysTime(const QDateTime &newTime)
     } else {
         w->formatOutput("更新系统时间成功");
     }
-    qDebug() << "set local timer ret: " << ret;
+    qDebug() << "set local time ret: " << ret;
     //CloseHandle(hToken);
 #else
     std::tm time_tm = { };
