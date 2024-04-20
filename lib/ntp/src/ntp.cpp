@@ -4,8 +4,12 @@
 #include <QCryptographicHash>
 #include <QtEndian>
 #include <QNetworkDatagram>
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
 #include <WinSock2.h>
+#define hton64 htonll
+#define ntoh64 ntohll
+#elif defined(Q_OS_MACOS)
+#include <machine/endian.h>
 #define hton64 htonll
 #define ntoh64 ntohll
 #else
