@@ -140,6 +140,12 @@ uint8_t *pad_to_sm4_block_size(const QString &plain, size_t *pad_size)
     return buf;
 }
 
+size_t pad_to_origin_size(const uint8_t *buf, size_t size)
+{
+    uint8_t pad_len = buf[size - 1];
+    return size - pad_len;
+}
+
 uint8_t *key_to_raw(const QString &key_str)
 {
     size_t key_size = key_str.length() > SM4_BLOCK_SIZE ? SM4_BLOCK_SIZE : key_str.length();
@@ -172,35 +178,110 @@ void sm4_encrypt_ecb_block(const uint8_t *in, uint8_t *out, SM4_KEY *key)
     store_u32_be(B0, out + 12);
 }
 
-const char *encode_base64(const uint8_t *in, size_t len)
+void sm4_decrypt_ecb_block(const uint8_t *in, uint8_t *out, SM4_KEY *key)
 {
-    const char *dict = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    uint32_t B0 = load_u32_be(in, 0);
+    uint32_t B1 = load_u32_be(in, 1);
+    uint32_t B2 = load_u32_be(in, 2);
+    uint32_t B3 = load_u32_be(in, 3);
+
+    for (int i = SM4_KEY_SCHEDULE - 1; i >= 0; i -= 4) {
+        B0 ^= SM4_T_slow(B1 ^ B2 ^ B3 ^ key->rk[i]);
+        B1 ^= SM4_T_slow(B2 ^ B3 ^ B0 ^ key->rk[i - 1]);
+        B2 ^= SM4_T_slow(B3 ^ B0 ^ B1 ^ key->rk[i - 2]);
+        B3 ^= SM4_T_slow(B0 ^ B1 ^ B2 ^ key->rk[i - 3]);
+    }
+
+    store_u32_be(B3, out);
+    store_u32_be(B2, out + 4);
+    store_u32_be(B1, out + 8);
+    store_u32_be(B0, out + 12);
+}
+
+char *encode_base64(const uint8_t *in, size_t len)
+{
+    const char *dict = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
     size_t tail = len % 3;
     size_t count = len - tail;
     uint32_t en;
     char *out = new char[len << 1];
     size_t out_len = 0;
     for (size_t i = 0; i < count; i += 3, out_len += 4) {
-        en = ((in[i] << 16) & 16711680) + ((in[i + 1] << 8) & 65280) + (in[i + 2] & 255);
-        out[out_len] = dict[(en >> 18) & 63];
-        out[out_len + 1] = dict[(en >> 12) & 63];
-        out[out_len + 2] = dict[(en >> 6) & 63];
-        out[out_len + 3] = dict[en & 63];
+        en = ((in[i] << 16) & 0xff0000) + ((in[i + 1] << 8) & 0xff00) + (in[i + 2] & 0xff);
+        out[out_len] = dict[(en >> 18) & 0x3f];
+        out[out_len + 1] = dict[(en >> 12) & 0x3f];
+        out[out_len + 2] = dict[(en >> 6) & 0x3f];
+        out[out_len + 3] = dict[en & 0x3f];
     }
     if (tail == 1) {
         en = in[len - 1];
         out[out_len++] = dict[en >> 2];
-        out[out_len++] = dict[(en << 4) & 63];
+        out[out_len++] = dict[(en << 4) & 0x3f];
         out[out_len++] = '=';
         out[out_len++] = '=';
     } else if (tail == 2) {
         en = (in[len - 2] << 8) + in[len - 1];
         out[out_len++] = dict[en >> 10];
-        out[out_len++] = dict[(en >> 4) & 63];
-        out[out_len++] = dict[(en << 2) & 63];
+        out[out_len++] = dict[(en >> 4) & 0x3f];
+        out[out_len++] = dict[(en << 2) & 0x3f];
         out[out_len++] = '=';
     }
     out[out_len] = 0;
+    return out;
+}
+
+#define DICTPOS(k, v) \
+    if ((k) >= 'A' && (k) <= 'Z') { \
+        v = (k) - 'A'; \
+    } else if ((k) >= 'a' && (k) <= 'z') { \
+        v = (k) - 'a' + 26; \
+    } else if ((k) >= '0' && (k) <= '9'){ \
+        v = (k) - '0' + 52; \
+    } else if ((k) == '+') { \
+        v = 62; \
+    } else if ((k) == '/') { \
+        v = 63; \
+    } else { \
+        v = 64; \
+    }
+
+uint8_t *decode_base64(const char *in, size_t len, size_t *olen)
+{
+    const char *dict = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    size_t out_len = 0;
+    size_t i, j;
+    uint8_t c1, c2;
+    *olen = 0;
+    if ((len & 0x3) != 0) {
+        return nullptr;
+    }
+    for (i = 0; i < len; i++) {
+        for (j = 0; j < 65; j++) {
+            if (in[i] == dict[j]) {
+                break;
+            }
+        }
+        if (j == 65) {
+            return nullptr;
+        }
+    }
+    uint8_t *out = new uint8_t[len];
+    for (i = 0; i < len; i += 4) {
+        DICTPOS(in[i], c1);
+        DICTPOS(in[i + 1], c2);
+        out[out_len++] = (c1 << 2) | (c2 >> 4);
+        c1 = c2;
+        DICTPOS(in[i + 2], c2);
+        if (c2 != 64) {
+            out[out_len++] = ((c1 & 0xf) << 4) | (c2 >> 2);
+            c1 = c2;
+            DICTPOS(in[i + 3], c2);
+            if (c2 != 64) {
+                out[out_len++] = ((c1 & 0x3) << 6) | c2;
+            }
+        }
+    }
+    *olen = out_len;
     return out;
 }
 
@@ -224,4 +305,32 @@ const QString sm4_encrypt_ecb(const QString &plain, const QString &key_str)
     delete [] out_base64;
     delete [] out;
     return s;
+}
+
+const QString sm4_decrypt_ecb(const QString &crypt, const QString &key_str)
+{
+    size_t olen;
+    std::string s = crypt.toStdString();
+    uint8_t *crypt_text = decode_base64(s.c_str(), s.size(), &olen);
+    if (!crypt_text) {
+        qDebug() << "invalid base64 text: " << crypt;
+        return "";
+    }
+    uint8_t *key_raw = key_to_raw(key_str);
+    SM4_KEY key;
+    sm4_set_key(key_raw, &key);
+    uint8_t *out = new uint8_t[olen + 1];
+
+    for (size_t round = 0; round < olen; round += SM4_BLOCK_SIZE) {
+        sm4_decrypt_ecb_block(crypt_text + round, out + round, &key);
+    }
+
+    delete [] key_raw;
+    delete [] crypt_text;
+
+    size_t ori_len = pad_to_origin_size(out, olen);
+    out[ori_len] = 0;
+    QString plain((const char *)out);
+    delete [] out;
+    return plain;
 }

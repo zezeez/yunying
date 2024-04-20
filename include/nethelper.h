@@ -14,6 +14,7 @@
 #ifdef HAS_CDN
 #include <cdn.h>
 #endif
+#include "serverip.h"
 
 class QNetworkReply;
 
@@ -76,6 +77,7 @@ public:
     void loginForLocation();
     void loginForLocationPasscodeReply(QNetworkReply *reply);
     void loginIndex();
+    void keepLogin();
     void loginSuccess();
     void logout();
     void logoutReply(QNetworkReply *reply);
@@ -192,9 +194,11 @@ public:
     QVector<QVector<int>> statSnapshot;
     QTimer *capSnapTimer;
     QTimer *rttDelayTimer;
+    QTimer *keepLoginTimer;
 #ifdef HAS_CDN
     Cdn cdn;
 #endif
+    ServerIp sip;
 };
 
 

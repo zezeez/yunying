@@ -54,13 +54,13 @@ QString seatTypeTranslateDesc(int seatType)
         QStringLiteral("软座"),
         QStringLiteral("Unknown"),
         QStringLiteral("无座"),
-        QStringLiteral("动卧"),
+        QStringLiteral("Unknown"),
         QStringLiteral("硬卧"),
         QStringLiteral("硬座"),
         QStringLiteral("二等座"),
         QStringLiteral("一等座"),
         QStringLiteral("商务特等座"),
-        QStringLiteral("Unknown")
+        QStringLiteral("动卧")
     };
     if (seatType < 0 || seatType >= seatTypeTrans.size())
         return _("Unknown");
@@ -76,14 +76,14 @@ QChar seatTypeTransToSubmitCode(int type)
         '4',
         '0',
         '0',
-        'O',
-        'F',
+        'W',
+        '0',
         '3',
         '1',
         'O',
         'M',
         '9',
-        '0'
+        'F'
     };
     Q_ASSERT(type >= 0 && type < static_cast<int>(sizeof(seatTypeSubmitCode) /
                                   sizeof(seatTypeSubmitCode[0])));
@@ -100,13 +100,13 @@ QChar seatTypeDescTransToSubmitCode(const QString &seatTYpeDesc)
         QStringLiteral("软座"),
         QStringLiteral("Unknown"),
         QStringLiteral("无座"),
-        QStringLiteral("动卧"),
+        QStringLiteral("Unknown"),
         QStringLiteral("硬卧"),
         QStringLiteral("硬座"),
         QStringLiteral("二等座"),
         QStringLiteral("一等座"),
         QStringLiteral("商务特等座"),
-        QStringLiteral("Unknown")
+        QStringLiteral("动卧")
     };
     QChar seatTypeSubmitCode[] = {
         '0',
@@ -115,14 +115,14 @@ QChar seatTypeDescTransToSubmitCode(const QString &seatTYpeDesc)
         '4',
         '0',
         '0',
-        'O',
-        'F',
+        'W',
+        '0',
         '3',
         '1',
         'O',
         'M',
         '9',
-        '0'
+        'F'
     };
     for (int i = 0; i < seatTypeTrans.size(); i++) {
         if (seatTYpeDesc == seatTypeTrans[i]) {
@@ -167,8 +167,8 @@ int Analysis::sufficientTicketPrioSelectTrain(const QVariantMap &stationMap)
 again:
     for (int i = 0; i < trainInfoVec.size(); i++) {
         QStringList &trainList = trainInfoVec[i];
-        QVector<int> &trainInfo = trainTicketInfo[i];
-        if (trainList.empty() || trainInfo.empty())
+        QVector<int> &ticketInfo = trainTicketInfo[i];
+        if (trainList.empty() || ticketInfo.empty())
             continue;
 
         QString trainDesc = _("%1 (%2 %3").arg(trainList[ESTATIONTRAINCODE],
@@ -200,7 +200,9 @@ again:
         }
         trainTicketNum = 0;
         for (int j = 0; j < selectSeatTypeSize; j++) {
-            trainTicketNum += trainInfo[selectSeatType[j]];
+            if (ticketInfo[selectSeatType[j]] > 0) {
+                trainTicketNum += ticketInfo[selectSeatType[j]];
+            }
         }
         if (trainTicketNum > trainTicketNumMax) {
             trainTicketNumMax = trainTicketNum;
@@ -255,7 +257,9 @@ int Analysis::strictTrainPrioSelectTrain(const QVariantMap &stationMap)
 
         trainTicketNum = 0;
         for (int k = 0; k < selectSeatTypeSize; k++) {
-            trainTicketNum += trainTicketInfo[j][selectSeatType[k]];
+            if (trainTicketInfo[j][selectSeatType[k]] > 0) {
+                trainTicketNum += trainTicketInfo[j][selectSeatType[k]];
+            }
         }
         if (trainTicketNum >= passengerList.size()) {
             return j;
@@ -306,7 +310,9 @@ int Analysis::strictTravelTimePrioSelectTrain(const QVariantMap &stationMap)
             continue;
         trainTicketNum = 0;
         for (int j = 0; j < selectSeatTypeSize; j++) {
-            trainTicketNum += trainTicketInfo[i][selectSeatType[j]];
+            if (trainTicketInfo[i][selectSeatType[j]] > 0) {
+                trainTicketNum += trainTicketInfo[i][selectSeatType[j]];
+            }
         }
         if (trainTicketNum >= passengerList.size()) {
             travelTimeStrList = trainList[ESPENDTIME].split(':', Qt::SkipEmptyParts);
@@ -359,7 +365,9 @@ int Analysis::strictStartTimePrioSelectTrain(const QVariantMap &stationMap)
             continue;
         trainTicketNum = 0;
         for (int j = 0; j < selectSeatTypeSize; j++) {
-            trainTicketNum += trainTicketInfo[i][selectSeatType[j]];
+            if (trainTicketInfo[i][selectSeatType[j]] > 0) {
+                trainTicketNum += trainTicketInfo[i][selectSeatType[j]];
+            }
         }
         if (trainTicketNum >= passengerList.size()) {
             return i;
@@ -562,7 +570,8 @@ QVector<std::pair<int, int>> Analysis::trainSelectSeatType(int trainNoIdx)
     return seatVec;
 }
 
-std::pair<QString, QString> Analysis::generateSubmitTicketInfo(QVector<std::pair<int, int>> &seatVec, QVector<QPair<QString, QChar>> &submitSeatType)
+std::pair<QString, QString> Analysis::generateSubmitTicketInfo(int trainNoIdx, QVector<std::pair<int, int>> &seatVec,
+                                                               QVector<QPair<QString, QChar>> &submitSeatType)
 {
     const QStringList &passengerList = w->passengerDialog->getSelectedPassenger();
     QString submitTicketStr, oldPassengerTicketStr;
@@ -578,6 +587,15 @@ std::pair<QString, QString> Analysis::generateSubmitTicketInfo(QVector<std::pair
             break;
         int k;
         QChar code = seatTypeTransToSubmitCode(seatVec[i].first);
+        if (code == '0') {
+            qDebug() << "Unsupported seat type: " << seatVec[i].first;
+            w->formatOutput(_("不支持的席别类型：") + seatTypeTranslateDesc(seatVec[i].first));
+            continue;
+        }
+        // 无座
+        if (code == 'W') {
+            code = trainTicketInfo[trainNoIdx][TICKETIDX(EZENUM)] != -1 ? 'O' : '1';  // 二等座 : 硬座
+        }
         for (k = 0; k < seatVec[i].second; k++) {
             if (idx >= passengerList.size())
                 break;
@@ -635,16 +653,16 @@ int Analysis::analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QPai
         methodDescIdx = 3;
     }
     if (trainNoIdx != -1) {
-        QStringList methodDesc = { _("检测到已选中的可预订车次，使用规则：余票充足的车次优先提交"),
-                                   _("检测到已选中的可预订车次，使用规则：按选中车次的顺序提交"),
-                                   _("检测到已选中的可预订车次，使用规则：行程时间短的车次优先提交"),
-                                   _("检测到已选中的可预订车次，使用规则：按列车发车时间顺序提交")
+        QStringList methodDesc = { _("检测到可预订的已选中车次，使用规则：余票充足的车次优先提交"),
+                                   _("检测到可预订的已选中车次，使用规则：按选中车次的顺序提交"),
+                                   _("检测到可预订的已选中车次，使用规则：行程时间短的车次优先提交"),
+                                   _("检测到可预订的已选中车次，使用规则：按列车发车时间顺序提交")
         };
         QString startStation, endStation;
         w->formatOutput(methodDesc[methodDescIdx]);
         startStation = stationMap.value(trainInfoVec[trainNoIdx][ESTARTSTATIONTELECODE]).toString();
         endStation = stationMap.value(trainInfoVec[trainNoIdx][EENDSTATIONTELECODE]).toString();
-        w->formatOutput(_("已选中车次%1 始发站：%2, 终点站：%3, 上车站：%4, 下车站：%5, 上车时间：%6, 到站时间：%7, 历时：%8")
+        w->formatOutput(_("已选中车次%1 始发站：%2, 终点站：%3, 出发站：%4, 到达站：%5, 出发时间：%6, 到达时间：%7, 历时：%8")
                         .arg(trainInfoVec[trainNoIdx][ESTATIONTRAINCODE],
                             startStation,
                             endStation,
@@ -659,7 +677,7 @@ int Analysis::analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QPai
         ud->submitTicketInfo.fromTime = trainInfoVec[trainNoIdx][ESTARTTIME];
         ud->submitTicketInfo.toTime = trainInfoVec[trainNoIdx][EARRIVETIME];
         ud->submitTicketInfo.travelTime = trainInfoVec[trainNoIdx][ESPENDTIME];
-        ticketStr = generateSubmitTicketInfo(seatVec, submitSeatType);
+        ticketStr = generateSubmitTicketInfo(trainNoIdx, seatVec, submitSeatType);
     }
     return trainNoIdx;
 }

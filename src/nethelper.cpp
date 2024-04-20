@@ -96,6 +96,11 @@ NetHelper::NetHelper(QObject *parent) : QObject(parent),
     });
     rttDelayTimer->setInterval(30 * 60 * 1000);
     rttDelayTimer->start();
+    keepLoginTimer = new QTimer;
+    connect(keepLoginTimer, &QTimer::timeout, this, &NetHelper::keepLogin);
+    keepLoginTimer->setInterval(5 * 60 * 1000);
+
+    sip.dnsAnswer("kyfw.12306.cn");
 }
 
 NetHelper *NetHelper::instance()
@@ -124,10 +129,11 @@ void NetHelper::setCookieHeader(const QUrl &url, QNetworkRequest &request)
         for (auto &i : cookieList) {
             cookieHeader.append(i.toRawForm(QNetworkCookie::NameAndValueOnly) + QStringLiteral("; ").toLatin1());
         }
-        if (cookieHeader.size()) {
+
+        if (cookieHeader.size() > 2) {
             cookieHeader.resize(cookieHeader.size() - 2);
             request.setRawHeader("Cookie", cookieHeader);
-            //qDebug() << cookieHeader;
+            //qDebug() << "cookie: " << cookieHeader;
         }
     }
 }
@@ -228,6 +234,18 @@ void NetHelper::get(const QUrl &url, replyCallBack rcb, QList<std::pair<QString,
     QNetworkRequest request;
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
+#ifdef HAS_CDN
+    QString cur = cdn.getCurCdn();
+    QString next = cdn.getNextCdn();
+    if (!next.isEmpty()) {
+        request.setIpAddress(next);
+        if (cur != next) {
+            nam->clearConnectionCache();
+        }
+    }
+    request.setPeerVerifyName(_("kyfw.12306.cn"));
+#endif
+    qDebug() << request.ipAddress();
     setHeader(url, request);
     QList<std::pair<QString, QString>>::const_iterator it;
     for (it = headers.cbegin(); it != headers.cend(); ++it) {
@@ -345,6 +363,7 @@ int NetHelper::replyIsOk(QNetworkReply *reply, QVariantMap &varMap)
         }
     } else {
         w->formatOutput(QStringLiteral("服务器返回错误"));
+        qDebug() << QString::fromUtf8(content);
         netStatInc(EBADREPLY);
         return -1;
     }
@@ -423,6 +442,7 @@ void NetHelper::getLoginConfReply(QNetworkReply *reply)
                 w->loginDialog->showSmsVerification();
             }*/
         }
+        keepLoginTimer->stop();
     }
 }
 
@@ -536,6 +556,7 @@ void NetHelper::isUamLoginReply(QNetworkReply *reply)
         loginSuccess();
     } else {
         w->uamNotLogined();
+        keepLoginTimer->stop();
         LoginConf &lconf = LoginConf::instance();
         if (lconf.isSweepLogin) {
             // 显示扫码登录入口
@@ -595,8 +616,13 @@ void NetHelper::loginForUamReply(QNetworkReply *reply)
         QMessageBox::warning(w->loginDialog, tr("Warning"), message, QMessageBox::Ok);
         break;
     default:
-        QMessageBox::warning(w->loginDialog, tr("Warning"), response[_("result_message")].toString(), QMessageBox::Ok);
+        message = response[_("result_message")].toString();
+        QMessageBox::warning(w->loginDialog, tr("Warning"), message, QMessageBox::Ok);
         break;
+    }
+    if (message.startsWith(_("用户名或密码错误"))) {
+        w->loginDialog->hideSmsVerification();
+        w->loginDialog->showUserNamePasswd();
     }
 }
 
@@ -648,10 +674,19 @@ void NetHelper::loginIndex()
     get(url, &NetHelper::ignoreReply);
 }
 
+void NetHelper::keepLogin()
+{
+    initMy12306Api();
+}
+
 void NetHelper::loginSuccess()
 {
     //w->showStatusBarMessage(_("当前用户：%1").arg(UserData::instance()->getUserLoginInfo().account));
     w->uamLogined();
+    initMy12306Api();
+    if (!keepLoginTimer->isActive()) {
+        keepLoginTimer->start();
+    }
     getPassengerInfo();
 }
 
@@ -769,7 +804,10 @@ void NetHelper::queryTicket()
                .arg(uc.tourDate, uc.staFromCode, uc.staToCode);
     url.setUrl(queryLeftTicketUrl + args);
 
-    get(url, &NetHelper::queryTicketReply);
+    QList<std::pair<QString, QString>> headers;
+    headers.append(std::pair<QString, QString>("If-Modified-Since", "0"));
+    headers.append(std::pair<QString, QString>("Cache-Control", "no-cache"));
+    get(url, &NetHelper::queryTicketReply, headers);
 }
 
 void NetHelper::queryTicketReply(QNetworkReply *reply)
@@ -806,7 +844,10 @@ void NetHelper::queryDiffDateTicket(const QString &date)
                                     "&leftTicketDTO.from_station=%2&leftTicketDTO.to_station=%3&purpose_codes=ADULT")
                    .arg(date, uc.staFromCode, uc.staToCode));
 
-    get(url, &NetHelper::queryDiffDateTicketReply);
+    QList<std::pair<QString, QString>> headers;
+    headers.append(std::pair<QString, QString>("If-Modified-Since", "0"));
+    headers.append(std::pair<QString, QString>("Cache-Control", "no-cache"));
+    get(url, &NetHelper::queryDiffDateTicketReply, headers);
 }
 
 void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
@@ -1030,22 +1071,37 @@ void NetHelper::checkUser()
     ReqParam param;
     param.put(_("_json_att"), _(""));
 
-    post(url, param, &NetHelper::checkUserReply);
+    QList<std::pair<QString, QString>> headers;
+    headers.append(std::pair<QString, QString>("If-Modified-Since", "0"));
+    headers.append(std::pair<QString, QString>("Cache-Control", "no-cache"));
+    post(url, param, &NetHelper::checkUserReply, headers);
+    w->formatOutput(_("正在校验登陆状态..."));
+    qDebug() << __FUNCTION__;
 }
 
 void NetHelper::checkUserReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
-    if (replyIsOk(reply, varMap) < 0)
+    qDebug() << __FUNCTION__;
+    if (replyIsOk(reply, varMap) < 0) {
+        handleError();
+        qDebug() << "reply is not ok";
         return;
-    //qDebug() << varMap;
+    }
+
+    qDebug() << varMap;
     QVariantMap data = varMap[QStringLiteral("data")].toMap();
-    if (data.isEmpty())
+    if (data.isEmpty()) {
+        handleError();
+        qDebug() << "data is empty";
         return;
+    }
     bool flag = data[QStringLiteral("flag")].toBool();
     if (!flag) {
+        handleError();
         getLoginConf();
         w->startOrStopGrabTicket();
+        qDebug() << "flag is false";
         return;
     }
 
@@ -1087,7 +1143,7 @@ void NetHelper::initDcReply(QNetworkReply *reply)
         if (tokenEndPos != -1) {
             ud->submitTicketInfo.repeatSubmitToken = text.sliced(tokenPos + tokenRemaind.length(),
                                                                  tokenEndPos - (tokenPos + tokenRemaind.length()));
-            //qDebug() << ud->submitTicketInfo.repeatSubmitToken;
+            qDebug() << ud->submitTicketInfo.repeatSubmitToken;
         }
     }
 
@@ -1114,6 +1170,7 @@ void NetHelper::initDcReply(QNetworkReply *reply)
                 } else if (token == _("'leftTicketStr':'")) {
                     ud->submitTicketInfo.leftTicketStr = result;
                 }
+                //qDebug() << token << result;
             }
         }
     }
@@ -1142,7 +1199,6 @@ void NetHelper::initMy12306ApiReply(QNetworkReply *reply)
 #if 0
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        handleError();
         return;
     }
     bool status = varMap[QStringLiteral("status")].toBool();
@@ -1174,8 +1230,8 @@ void NetHelper::submitOrderRequest()
     param.put(_("purpose_codes"), _("ADULT"));
     param.put(_("query_from_station_name"), ud->submitTicketInfo.fromStationName);
     param.put(_("query_to_station_name"), ud->submitTicketInfo.toStationName);
-    param.put(_("bed_level_info"), _(""));
-    param.put(_("seat_discount_info"), _(""));
+    param.put(_("bed_level_info"), ud->submitTicketInfo.bedLevelInfo);
+    param.put(_("seat_discount_info"), ud->submitTicketInfo.seatDiscountInfo);
     param.put(_("undefined"), _(""));
     param.finish();
 
@@ -1183,7 +1239,7 @@ void NetHelper::submitOrderRequest()
 
     post(url, param, &NetHelper::submitOrderRequestReply);
     w->formatOutput(_("正在提交订单..."));
-    ud->setRunStatus(ESUBMITORDER);
+    //ud->setRunStatus(ESUBMITORDER);
     qDebug() << __FUNCTION__;
     netStatInc(ESUBMIT);
 }
@@ -1191,6 +1247,7 @@ void NetHelper::submitOrderRequest()
 void NetHelper::submitOrderRequestReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
+    qDebug() << __FUNCTION__;
     if (replyIsOk(reply, varMap) < 0) {
         handleError();
         return;
@@ -1230,6 +1287,7 @@ void NetHelper::checkOrderInfo()
 
     post(url, param, &NetHelper::checkOrderInfoReply);
     w->formatOutput(_("正在校验订单..."));
+    qDebug() << param.get();
     qDebug() << __FUNCTION__;
 }
 
@@ -1346,17 +1404,12 @@ void NetHelper::getQueueCountReply(QNetworkReply *reply)
     UserData *ud = UserData::instance();
     QChar c = !ud->submitTicketInfo.submitSeatType.isEmpty() ?
                   ud->submitTicketInfo.submitSeatType[0].second : QChar('0');
+    int totalRemain = 0;
     int remain = ticketList[0].toInt(&ok);
     if (ok) {
         disp.append(_("本次列车%1余票%2张").arg(seatTypeSubmtiCodeTransToDesc(c))
                         .arg(remain));
-        if (remain <= 0) {
-            mayFrozenCurrentTrain(_("实时余票为%1张，该车次数据为缓存，把%2加入冻结列表%3秒")
-                                      .arg(remain)
-                                .arg(ud->submitTicketInfo.trainCode)
-                                .arg(ud->grabSetting.frozenSeconds));
-
-        }
+        totalRemain = remain;
     } else {
         disp.append(_("本次列车%1余票%2").arg(seatTypeSubmtiCodeTransToDesc(c),
                         ticketList[0]));
@@ -1365,6 +1418,13 @@ void NetHelper::getQueueCountReply(QNetworkReply *reply)
         remain = ticketList[1].toInt(&ok);
         if (ok) {
             disp.append(_(", 无座余票%1张").arg(remain));
+            totalRemain += remain;
+            if (totalRemain <= 0) {
+                mayFrozenCurrentTrain(_("实时余票为%1张，该车次余票不足，把%2加入冻结列表%3秒")
+                                          .arg(totalRemain)
+                                          .arg(ud->submitTicketInfo.trainCode)
+                                          .arg(ud->grabSetting.frozenSeconds));
+            }
         } else {
             disp.append(_(", 无座余票%1").arg(ticketList[1]));
         }
@@ -1375,7 +1435,7 @@ void NetHelper::getQueueCountReply(QNetworkReply *reply)
     QString op_2 = data[_("op_2")].toString();
     if (op_2 == "true") {
         w->formatOutput(_("目前排队人数已经超过余票张数, 无法下单！"));
-        mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%2秒")
+        mayFrozenCurrentTrain(_("无法提交订单，该车次余票不足，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
         handleError();
@@ -1398,7 +1458,7 @@ void NetHelper::confirmSingle()
     param.put(_("oldPassengerStr"), ud->submitTicketInfo.oldPassengerTicketInfo);
     param.put(_("purpose_codes"), ud->submitTicketInfo.purposeCodes);
     param.put(_("key_check_isChange"), ud->submitTicketInfo.keyCheckIsChange);
-    param.put(_("leftTicketStr"), ud->submitTicketInfo.leftTicketStr);
+    param.put(_("leftTicketStr"), ud->submitTicketInfo.leftTicketStr.toUtf8().toPercentEncoding());
     param.put(_("train_location"), ud->submitTicketInfo.trainLocation);
     if (canChooseSeats && !chooseSeat.isEmpty() &&
         !ud->submitTicketInfo.submitSeatType.isEmpty()) {
@@ -1461,7 +1521,7 @@ void NetHelper::confirmSingleReply(QNetworkReply *reply)
     bool status = varMap[_("status")].toBool();
     if (!status) {
         w->formatOutput(_("出票失败! 无法预订本次车票"));
-        mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%2秒")
+        mayFrozenCurrentTrain(_("无法提交订单，未知错误，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
         handleError();
@@ -1472,7 +1532,7 @@ void NetHelper::confirmSingleReply(QNetworkReply *reply)
     if (!submitStatus) {
         QString errMsg = varMap[QStringLiteral("errMsg")].toString();
         w->formatOutput(QStringLiteral("出票失败! 原因：%1").arg(errMsg));
-        mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%@秒")
+        mayFrozenCurrentTrain(_("无法提交订单，把%1加入冻结列表%@秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
         handleError();
@@ -1494,7 +1554,7 @@ void NetHelper::confirmSingleForQueue()
     param.put(_("oldPassengerStr"), ud->submitTicketInfo.oldPassengerTicketInfo);
     param.put(_("purpose_codes"), ud->submitTicketInfo.purposeCodes);
     param.put(_("key_check_isChange"), ud->submitTicketInfo.keyCheckIsChange);
-    param.put(_("leftTicketStr"), ud->submitTicketInfo.leftTicketStr);
+    param.put(_("leftTicketStr"), ud->submitTicketInfo.leftTicketStr.toUtf8().toPercentEncoding());
     param.put(_("train_location"), ud->submitTicketInfo.trainLocation);
     if (canChooseSeats && !chooseSeat.isEmpty() &&
         !ud->submitTicketInfo.submitSeatType.isEmpty()) {
@@ -1556,11 +1616,11 @@ void NetHelper::confirmSingleForQueueReply(QNetworkReply *reply)
         handleError();
         return;
     }
-    //qDebug() << varMap;
+    qDebug() << varMap;
     bool status = varMap[_("status")].toBool();
     if (!status) {
         w->formatOutput(_("出票失败! 无法预订本次车票"));
-        mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%2秒")
+        mayFrozenCurrentTrain(_("无法提交订单，未知错误，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
         handleError();
@@ -1571,7 +1631,7 @@ void NetHelper::confirmSingleForQueueReply(QNetworkReply *reply)
     if (!submitStatus) {
         QString errMsg = varMap[QStringLiteral("errMsg")].toString();
         w->formatOutput(QStringLiteral("出票失败! 原因：%1").arg(errMsg));
-        mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%2秒")
+        mayFrozenCurrentTrain(_("无法提交订单，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
         handleError();
@@ -1670,13 +1730,13 @@ void NetHelper::resultOrderForDcQueue()
         //int errorCode = waitOrderInfo[_("errorCode")].toInt();
         QString msg = waitOrderInfo[_("msg")].toString();
         w->formatOutput(_("订票失败! 原因：%1").arg(msg));
-        mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%2秒")
+        mayFrozenCurrentTrain(_("无法提交订单，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
         handleError();
     } else if (orderWaitTime == -3) {
         w->formatOutput(_("哎呀,订票失败! 订单已撤销"));
-        mayFrozenCurrentTrain(_("无法提交订单，该车次数据为缓存，把%1加入冻结列表%2秒")
+        mayFrozenCurrentTrain(_("无法提交订单，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
         handleError();
@@ -1763,8 +1823,13 @@ void NetHelper::grabTicketSuccess()
     UserData *ud = UserData::instance();
     ud->lastRunSuccess = true;
     sendMail();
-    w->settingDialog->sendWxNotify(_("订单出票成功! 请尽快前往12306网站或12306手机APP完成支付，"
-        "如果超时未支付，订单将会在10分钟后自动取消"));
+    w->settingDialog->sendWxNotify(_("%1 %2 %3 %4 %5 %6 %7 %8 订单出票成功! 请尽快前往12306网站或12306手机APP完成支付，"
+                                     "如果超时未支付，订单将会在10分钟后自动取消")
+                                       .arg(ud->submitTicketInfo.date, ud->submitTicketInfo.trainCode,
+                                            ud->submitTicketInfo.fromStationName, ud->submitTicketInfo.toStationName,
+                                            ud->submitTicketInfo.fromTime, ud->submitTicketInfo.toTime,
+                                            ud->submitTicketInfo.travelTime,
+                                            seatTypeSubmtiCodeTransToDesc(ud->submitTicketInfo.submitSeatType[0].second)));
     w->startOrStopGrabTicket();
     if (ud->generalSetting.playMusic) {
         w->startOrStopPlayMusic();
@@ -1857,7 +1922,10 @@ void NetHelper::chechFace(const struct CandidateDateInfo &dInfo)
         param.put(_("secretList"), secretList);
         param.put(_("_json_att"), _(""));
         qDebug() << param.get();
-        post(url, param, &NetHelper::checkFaceReply);
+        QList<std::pair<QString, QString>> headers;
+        headers.append(std::pair<QString, QString>("If-Modified-Since", "0"));
+        headers.append(std::pair<QString, QString>("Cache-Control", "no-cache"));
+        post(url, param, &NetHelper::checkFaceReply, headers);
         netStatInc(ECANDIDATE);
     }
 }
@@ -2332,7 +2400,7 @@ void NetHelper::sendMail()
                                "<table border=\"1\" style=\"color: #8B1A1A; background-color: #FFFAFA; margin-left: 20px\">"
                                "<tr>"
                                "<td>乘客</td><td>下单时间</td><td>乘车日期</td><td>车次</td><td>席别</td><td>始发站</td><td>终点站</td>"
-                               "<td>上车站</td><td>下车站</td><td>上车时间</td><td>下车时间</td><td>历时</td>"
+                               "<td>出发站</td><td>到达站</td><td>出发时间</td><td>到达时间</td><td>历时</td>"
                                "</tr>";
         QString mailContent;
         QDateTime now = QDateTime::currentDateTime();

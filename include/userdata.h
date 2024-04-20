@@ -213,6 +213,8 @@ struct SubmitTicketInfo {
     QString purposeCodes;
     QString trainLocation;
     QString keyCheckIsChange;
+    QString bedLevelInfo;
+    QString seatDiscountInfo;
 };
 
 struct SeatTypePrioSetting {

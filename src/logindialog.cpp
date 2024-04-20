@@ -2,6 +2,8 @@
 #include "userdata.h"
 #include "completeedit.h"
 #include "nethelper.h"
+#include "lib/sm4/include/sm4.h"
+#include "12306.h"
 #include <QWidget>
 #include <QTabWidget>
 #include <QHBoxLayout>
@@ -144,10 +146,17 @@ void LoginDialog::setUp()
         QString text = setting.value(_("login/username"), _("")).value<QString>();
         userNameLe->setText(text);
         text = setting.value(_("login/passwd"), _("")).value<QString>();
-        passwdLe->setText(text);
+        if (!text.isEmpty()) {
+            QString passwd = sm4_decrypt_ecb(text, SM4_KEY_SECRET);
+            passwdLe->setText(passwd);
+        }
         loginPb->setFocus();
     }
     keepPasswdCB->setChecked(checked);
+    connect(keepPasswdCB, &QCheckBox::toggled, this, [] (bool checked) {
+        QSettings setting;
+        setting.setValue(_("login/keep_passwd"), checked);
+    });
 
     vLayout->addLayout(hLayout);
     vLayout->setAlignment(Qt::AlignHCenter);
@@ -314,9 +323,12 @@ void LoginDialog::onLogin()
     bool checked = keepPasswdCB->isChecked();
     if (checked) {
         setting.setValue(_("login/username"), userName);
-        setting.setValue(_("login/passwd"), passwd);
+        if (!passwd.isEmpty()) {
+            QString crypt = sm4_encrypt_ecb(passwd, SM4_KEY_SECRET);
+            setting.setValue(_("login/passwd"), crypt);
+        }
     }
-    setting.setValue(_("login/keep_passwd"), checked);
+
     NetHelper::instance()->onLogin();
 }
 
@@ -417,7 +429,7 @@ void LoginDialog::showLoadedQrCode(const QVariantMap &varMap)
     if (!qrCodeRefreshTimer) {
         qrCodeRefreshTimer = new QTimer;
         connect(qrCodeRefreshTimer, &QTimer::timeout, this, &LoginDialog::qrCodeRefreshTimeout);
-        qrCodeRefreshTimer->setInterval(1500);
+        qrCodeRefreshTimer->setInterval(1000);
     }
 
     qrCodeRefreshTimer->start();

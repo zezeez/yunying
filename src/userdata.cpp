@@ -218,6 +218,8 @@ QString seatTypeSubmtiCodeTransToDesc(QChar seatType)
         return _("一等座");
     case 'P':
         return _("特等座");
+    case 'W':
+        return _("无座");
     default:
         return _("");
     }
@@ -232,7 +234,7 @@ QChar seatTypeEnumTransToSubmitCode(enum TrainInfoEnum seatType)
         '4',
         '2',
         'P',
-        '0',
+        'W',
         '0',
         '3',
         '1',

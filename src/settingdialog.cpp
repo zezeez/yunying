@@ -20,7 +20,8 @@
 #include <QJsonDocument>
 #include "mainwindow.h"
 #include "nethelper.h"
-#include "lib/ntp/include/ntp.h"
+#include "lib/sm4/include/sm4.h"
+#include "12306.h"
 
 #define _ QStringLiteral
 
@@ -352,7 +353,7 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
         QSettings setting;
         setting.setValue(_("grab_setting/frozen_seconds"), value);
     });
-    int secs = setting.value(_("grab_setting/frozen_seconds"), 180).value<int>();
+    int secs = setting.value(_("grab_setting/frozen_seconds"), 120).value<int>();
     sbox->setValue(secs);
     sbox->setEnabled(checked);
     connect(cb, &QCheckBox::toggled, this, [sbox] (bool checked) {
@@ -435,15 +436,16 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     customRb->setChecked(checked);
     //vlayout1->addWidget(rb);
 
+    sbox->setMinimum(1);
+    sbox->setMaximum(3600);
     connect(sbox, &QSpinBox::valueChanged, this, [] (int value) {
         UserData *ud = UserData::instance();
         ud->grabSetting.grabIntervalSeconds = value;
         QSettings setting;
         setting.setValue(_("grab_setting/grab_seconds"), value);
     });
-    sbox->setMinimum(1);
-    sbox->setMaximum(3600);
-    secs = setting.value(_("grab_setting/grab_seconds"), 1).value<int>();
+
+    secs = setting.value(_("grab_setting/grab_seconds"), 3).value<int>();
     sbox->setValue(secs);
     sbox->setEnabled(checked);
     QHBoxLayout *hlayout1 = new QHBoxLayout;
@@ -989,15 +991,19 @@ void SettingDialog::notifySetting(QTabWidget *tab)
     connect(authCodeLe, &QLineEdit::textChanged, this, [] (QString text) {
         UserData *ud = UserData::instance();
         ud->notifySetting.emailNotify.authCode = text.trimmed();
-        if (ud->notifySetting.emailNotify.keepAuthCode) {
+        if (ud->notifySetting.emailNotify.keepAuthCode && !text.isEmpty()) {
             QSettings setting;
+            QString crypt = sm4_encrypt_ecb(text, SM4_KEY_SECRET);
             setting.setValue(_("email_notify/auth_code"),
-                             text);
+                             crypt);
         }
     });
     QString text = setting.value(_("email_notify/auth_code"),
                                  _("")).value<QString>();
-    authCodeLe->setText(text);
+    if (!text.isEmpty()) {
+        QString plain = sm4_decrypt_ecb(text, SM4_KEY_SECRET);
+        authCodeLe->setText(plain);
+    }
     authCodeLe->setPlaceholderText(_("授权码"));
     authCodeLe->setEchoMode(QLineEdit::Password);
     connect(recevierLe, &QLineEdit::textChanged, this, [] (QString text) {

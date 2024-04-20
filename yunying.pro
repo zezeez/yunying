@@ -29,6 +29,10 @@ INCLUDEPATH += include
 # DEPENDPATH = .
 
 SOURCES += \
+    lib/dns/src/buffer.cpp \
+    lib/dns/src/message.cpp \
+    lib/dns/src/qs.cpp \
+    lib/dns/src/rr.cpp \
     lib/ntp/src/ntp.cpp \
     src/analysis.cpp \
     src/cdn.cpp \
@@ -42,6 +46,7 @@ SOURCES += \
     src/passengerdialog.cpp \
     src/seatdialog.cpp \
     src/seattypedialog.cpp \
+    src/serverip.cpp \
     src/settingdialog.cpp \
     src/sliderwidget.cpp \
     src/sysutil.cpp \
@@ -68,6 +73,7 @@ HEADERS += \
     include/passengerdialog.h \
     include/seatdialog.h \
     include/seattypedialog.h \
+    include/serverip.h \
     include/settingdialog.h \
     include/sliderwidget.h \
     include/sysutil.h \
@@ -75,6 +81,12 @@ HEADERS += \
     include/userdata.h \
     include/completeedit.h \
     include/version.h \
+    lib/dns/include/buffer.h \
+    lib/dns/include/dns.h \
+    lib/dns/include/exception.h \
+    lib/dns/include/message.h \
+    lib/dns/include/qs.h \
+    lib/dns/include/rr.h \
     lib/ntp/include/ntp.h \
     lib/smtp/include/smtp.h \
     lib/sm4/include/sm4.h

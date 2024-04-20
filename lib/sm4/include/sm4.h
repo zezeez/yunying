@@ -28,5 +28,6 @@ typedef struct SM4_KEY_st {
 } SM4_KEY;
 
 const QString sm4_encrypt_ecb(const QString &plain, const QString &key_str);
+const QString sm4_decrypt_ecb(const QString &crypt, const QString &key_str);
 
 #endif

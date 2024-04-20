@@ -545,6 +545,8 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 allTrain.push_back(trainInfo);
             }
         }
+        formatOutput(_("%1->%2(%3) 共查询到 %4 趟车次, 可预订 %5 趟车次").
+                     arg(staFromName, staToName, tourDate).arg(trainListSize).arg(can_booking));
         Analysis candidateAnalysis(allTrain);
         if (ud->candidateSetting.isCandidate &&
             ud->candidateSetting.onlyCandidate) {
@@ -557,29 +559,38 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             if (ud->candidateSetting.isCandidate && ud->candidateSetting.prioCandidate) {
                 candidateAnalysis.mayCandidate(stationMap, ud->getUserConfig().tourDate);
             }
+
             if (can_booking) {
                 Analysis ana(availableTrain);
                 std::pair<QString, QString> ticketStr;
                 QVector<QPair<QString, QChar>> submitSeatType;
                 int trainNoIdx = ana.analysisTrain(ticketStr, submitSeatType, stationMap);
                 if (trainNoIdx != -1) {
-                    ud->submitTicketInfo.trainCode = availableTrain[trainNoIdx][ESTATIONTRAINCODE];
-                    ud->submitTicketInfo.trainNo = availableTrain[trainNoIdx][ETRAINNO];
-                    ud->submitTicketInfo.secretStr = availableTrain[trainNoIdx][ESECRETSTR];
-                    ud->submitTicketInfo.ypDetailInfo = availableTrain[trainNoIdx][EYPINFO];
-                    ud->submitTicketInfo.date = tourDate;
-                    ud->submitTicketInfo.fromStationCode = availableTrain[trainNoIdx][EFROMSTATIONTELECODE];
-                    ud->submitTicketInfo.fromStationName = stationMap.value(availableTrain[trainNoIdx]
-                                                                                          [EFROMSTATIONTELECODE])
-                                                               .toString();
-                    ud->submitTicketInfo.toStationCode = availableTrain[trainNoIdx][ETOSTATIONTELECODE];
-                    ud->submitTicketInfo.toStationName = stationMap.value(availableTrain[trainNoIdx]
-                                                                                        [ETOSTATIONTELECODE])
-                                                             .toString();
-                    ud->submitTicketInfo.submitSeatType = submitSeatType;
-                    ud->submitTicketInfo.passengerTicketInfo = ticketStr.first;
-                    ud->submitTicketInfo.oldPassengerTicketInfo = ticketStr.second;
-                    NetHelper::instance()->checkUser();
+                    if (!ticketStr.first.isEmpty() && !ticketStr.second.isEmpty()) {
+                        ud->submitTicketInfo.trainCode = availableTrain[trainNoIdx][ESTATIONTRAINCODE];
+                        ud->submitTicketInfo.trainNo = availableTrain[trainNoIdx][ETRAINNO];
+                        ud->submitTicketInfo.secretStr = availableTrain[trainNoIdx][ESECRETSTR];
+                        ud->submitTicketInfo.ypDetailInfo = availableTrain[trainNoIdx][EYPINFO];
+                        ud->submitTicketInfo.date = tourDate;
+                        ud->submitTicketInfo.fromStationCode = availableTrain[trainNoIdx][EFROMSTATIONTELECODE];
+                        ud->submitTicketInfo.fromStationName = stationMap.value(availableTrain[trainNoIdx]
+                                                                                              [EFROMSTATIONTELECODE])
+                                                                   .toString();
+                        ud->submitTicketInfo.toStationCode = availableTrain[trainNoIdx][ETOSTATIONTELECODE];
+                        ud->submitTicketInfo.toStationName = stationMap.value(availableTrain[trainNoIdx]
+                                                                                            [ETOSTATIONTELECODE])
+                                                                 .toString();
+                        ud->submitTicketInfo.submitSeatType = submitSeatType;
+                        ud->submitTicketInfo.passengerTicketInfo = ticketStr.first;
+                        ud->submitTicketInfo.oldPassengerTicketInfo = ticketStr.second;
+                        ud->submitTicketInfo.bedLevelInfo = availableTrain[trainNoIdx][EBEDLEVELINFO];
+                        ud->submitTicketInfo.seatDiscountInfo = availableTrain[trainNoIdx][ESEATDISCOUNTINFO];
+                        ud->setRunStatus(ESUBMITORDER);
+                        // 提交订单入口
+                        NetHelper::instance()->checkUser();
+                    } else {
+                        formatOutput(_("生成车票提交信息失败"));
+                    }
                 }
             }
             if (ud->candidateSetting.isCandidate && !ud->candidateSetting.prioCandidate) {
@@ -765,7 +776,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 if (!trainInfo[ESECRETSTR].isEmpty() && trainInfo[ECANDIDATETRAINFLAG] == _("1") &&
                     curText == _("无")) {
                     QChar seatTypeCode = seatTypeEnumTransToSubmitCode(seatTypeData.second);
-                    if (seatTypeCode != '0') {
+                    if (seatTypeCode != '0' && seatTypeCode != 'W') {
                         curText = _("候补");
                         if (!trainInfo[ECANDIDATESEATLIMIT].contains(seatTypeCode)) {
                             canCandidate = true;
@@ -928,13 +939,15 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
     //tableView->resizeColumnToContents(EFROMSTATIONCOL);
     //tableView->resizeColumnToContents(ETOSTATIONCOL);
 
-    if (useTrainListSize == trainListSize) {
-        formatOutput(_("%1->%2(%3) 共查询到 %4 趟车次, 可预订 %5 趟车次").
-                     arg(staFromName, staToName, tourDate).arg(trainListSize).arg(can_booking));
-    } else {
-        formatOutput(_("%1->%2(%3) 共查询到 %4 趟车次, 已过滤 %5 趟车次, 可预订 %6 趟车次").
-                     arg(staFromName, staToName, tourDate).arg(trainListSize)
-                     .arg(trainListSize - useTrainListSize).arg(can_booking));
+    if (ud->runStatus == EIDLE) {
+        if (useTrainListSize == trainListSize) {
+            formatOutput(_("%1->%2(%3) 共查询到 %4 趟车次, 可预订 %5 趟车次").
+                         arg(staFromName, staToName, tourDate).arg(trainListSize).arg(can_booking));
+        } else {
+            formatOutput(_("%1->%2(%3) 共查询到 %4 趟车次, 已过滤 %5 趟车次, 可预订 %6 趟车次").
+                         arg(staFromName, staToName, tourDate).arg(trainListSize)
+                         .arg(trainListSize - useTrainListSize).arg(can_booking));
+        }
     }
 }
 
@@ -1807,7 +1820,8 @@ void MainWindow::formatOutput(const QString &output)
     static QString textBuff;
     textBuff.clear();
     QDateTime date = QDateTime::currentDateTime();
-    textBuff += date.toString(Qt::ISODate);
+    //textBuff += date.toString(Qt::ISODate);
+    textBuff += date.toString(_("yyyy-MM-dd hh:mm:ss.zzz"));
     textBuff += QStringLiteral(" ") + output;
     browser->append(textBuff);
     UserData *ud = UserData::instance();

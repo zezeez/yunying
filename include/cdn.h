@@ -15,6 +15,7 @@ public:
     void testCdnTimeout();
     void addCdn(const QString &cdn);
     void addCdns(const QStringList &cdnList);
+    void addAvaliableCdn(const QString &cdn);
     void startTest();
     void setMainCdn(const QString &cdn);
     void removeMainCdn();
