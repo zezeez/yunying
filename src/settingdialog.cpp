@@ -413,7 +413,7 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     checked = setting.value(_("grab_setting/grab_random"), false).value<bool>();
     randomRb->setChecked(checked);
     vlayout1->addWidget(randomRb);
-    fixTimeRb = new QRadioButton(tr("定时抢票模式(间隔1秒超过30秒之后切换默认模式)"));
+    fixTimeRb = new QRadioButton(tr("定时抢票模式(间隔1秒超过15秒之后切换默认模式)"));
     connect(fixTimeRb, &QRadioButton::toggled, this, [] (bool checked) {
         UserData *ud = UserData::instance();
         ud->grabSetting.grabMode = EFIXEDTIME;
@@ -446,6 +446,7 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     });
 
     secs = setting.value(_("grab_setting/grab_seconds"), 3).value<int>();
+    ud->grabSetting.grabIntervalSeconds = secs;
     sbox->setValue(secs);
     sbox->setEnabled(checked);
     QHBoxLayout *hlayout1 = new QHBoxLayout;
@@ -514,13 +515,18 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     tab->addTab(widget, tr("抢票设置"));
 }
 
+void SettingDialog::closeCandidate()
+{
+    candidateCB->setChecked(false);
+}
+
 void SettingDialog::candidateSetting(QTabWidget *tab)
 {
     QSettings setting;
     QGroupBox *groupBox = new QGroupBox;
     QVBoxLayout *vlayout = new QVBoxLayout;
     QHBoxLayout *hlayout = new QHBoxLayout;
-    QCheckBox *candidateCB = new QCheckBox(tr("候补购票"));
+    candidateCB = new QCheckBox(tr("候补购票"));
 
     QCheckBox *onlyCandidateCB = new QCheckBox(tr("只候补不购票"));
     connect(onlyCandidateCB, &QCheckBox::toggled, this, [=] (bool checked) {

@@ -1958,8 +1958,21 @@ void NetHelper::checkFaceReply(QNetworkReply *reply)
     bool status = varMap[_("status")].toBool();
     if (!status) {
         QStringList messages = varMap[_("messages")].toStringList();
-        w->formatOutput(messages.isEmpty() ? _("请求返回错误") : messages[0]);
-        handlecandidateError();
+        QString m = messages.isEmpty() ? _("status is false") : messages[0];
+        w->formatOutput(_("候补下单时遇到错误: ") + m);
+        qDebug() << m;
+        UserData *ud = UserData::instance();
+        if (m.startsWith(_("目前您已有待支付的候补订单"))) {
+            if (ud->candidateSetting.onlyCandidate) {
+                ud->lastRunSuccess = true;
+                w->startOrStopGrabTicket();
+            } else {
+                ud->candidateSetting.isCandidate = false;
+                w->settingDialog->closeCandidate();
+                ud->setRunStatus(EGRABTICKET);
+                ud->candidateRunStatus = EIDLE;
+            }
+        }
         return;
     }
     QVariantMap data = varMap[_("data")].toMap();
@@ -1971,11 +1984,18 @@ void NetHelper::checkFaceReply(QNetworkReply *reply)
             bool is_show_qrcode = data[_("is_show_qrcode")].toBool();
             showCandidateWarn(face_check_code, is_show_qrcode);
             handlecandidateError();
+            w->formatOutput(_("候补下单时遇到错误: face flag is false"));
+            QStringList messages = varMap[_("messages")].toStringList();
+            qDebug() << messages;
         } else {
             submitCandidateOrderRequest();
         }
     } else {
         handlecandidateError();
+        qDebug() << "login flag is false";
+        w->formatOutput(_("候补下单时遇到错误: login flag is false"));
+        QStringList messages = varMap[_("messages")].toStringList();
+        qDebug() << messages;
     }
 }
 
@@ -2519,12 +2539,20 @@ void NetHelper::lineUptoPayConfirm(const QString &reserve_no)
     //QDesktopServices::openUrl(QUrl(_(LINEUPTOPAYCONFIRM)));
     // 结束任务
     UserData *ud = UserData::instance();
-    ud->lastRunSuccess = true;
     sendCandidateMail();
     w->settingDialog->sendWxNotify(msg);
-    w->startOrStopGrabTicket();
-    if (ud->generalSetting.playMusic) {
-        w->startOrStopPlayMusic();
+
+    if (ud->candidateSetting.onlyCandidate) {
+        ud->lastRunSuccess = true;
+        w->startOrStopGrabTicket();
+        if (ud->generalSetting.playMusic) {
+            w->startOrStopPlayMusic();
+        }
+    } else {
+        ud->candidateSetting.isCandidate = false;
+        w->settingDialog->closeCandidate();
+        ud->setRunStatus(EGRABTICKET);
+        ud->candidateRunStatus = EIDLE;
     }
 }
 
@@ -2617,7 +2645,7 @@ void NetHelper::getCdnReply(QNetworkReply *reply)
         cdn.startTest();
     }
 
-    qDebug() << varMap;
+    //qDebug() << varMap;
 }
 #endif
 
@@ -2626,4 +2654,5 @@ NetHelper::~NetHelper()
     delete nam;
     delete capSnapTimer;
     delete rttDelayTimer;
+    delete keepLoginTimer;
 }

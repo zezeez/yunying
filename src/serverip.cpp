@@ -117,7 +117,7 @@ void ServerIp::recvDnsAnswer()
             }
         }
     }
-    catch (dns::Exception& e) {
+    catch (dns::Exception &e) {
         qDebug() << "DNS exception occured when parsing incoming data: " << e.what();
     }
 }

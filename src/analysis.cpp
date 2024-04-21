@@ -405,7 +405,8 @@ void Analysis::initTrainTicketInfo()
         ticketVec.resize(TICKETSIZE);
         for (auto &seatTypeNum : trainSeatTypeDataNum) {
             ticketVec[TICKETIDX(seatTypeNum)] = trainList[seatTypeNum] == QStringLiteral("有") ? 100 :
-                                                !trainList[seatTypeNum].isEmpty() && trainList[seatTypeNum] != QStringLiteral("无") ?
+                                                !trainList[seatTypeNum].isEmpty() && trainList[seatTypeNum] != QStringLiteral("无") &&
+                                                trainList[seatTypeNum] != QStringLiteral("*") ?
                                                 trainList[seatTypeNum].toInt() : !trainList[seatTypeNum].isEmpty() &&
                                                 trainList[seatTypeNum] == _("无") ? 0 : -1;
         }
@@ -684,7 +685,7 @@ int Analysis::analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QPai
 
 bool Analysis::mayCandidate(const QVariantMap &stationMap, const QString &date)
 {
-    int ret = -1;
+    bool ret = false;
     int i, j;
     int trainInfoVecSize = trainInfoVec.size();
     const QList<QString> &selectedSeatTypeList = w->seatTypeDialog->getSelectedSeatType();
@@ -742,7 +743,7 @@ bool Analysis::mayCandidate(const QVariantMap &stationMap, const QString &date)
     }
     if (!dInfo.train.isEmpty()) {
         NetHelper::instance()->candidateEntry(dInfo);
-        ret = 0;
+        ret = true;
     }
     return ret;
 }

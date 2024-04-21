@@ -370,6 +370,9 @@ void MainWindow::swapStation()
     uc.staFromName.swap(uc.staToName);
     uc.staFromCode.swap(uc.staToCode);
     trainNoDialog->clearUnSelectedTrain();
+    QSettings setting;
+    setting.setValue(_("query_ticket/from_station_name"), uc.staFromName);
+    setting.setValue(_("query_ticket/to_station_name"), uc.staToName);
 }
 
 void MainWindow::syncTime()
@@ -548,6 +551,9 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         formatOutput(_("%1->%2(%3) 共查询到 %4 趟车次, 可预订 %5 趟车次").
                      arg(staFromName, staToName, tourDate).arg(trainListSize).arg(can_booking));
         Analysis candidateAnalysis(allTrain);
+        int trainNoIdx = -1;
+        bool hasCandidate = false;
+
         if (ud->candidateSetting.isCandidate &&
             ud->candidateSetting.onlyCandidate) {
             if (ud->candidateRunStatus == ESUBMITCANDIDATESUCCESS) {
@@ -557,14 +563,14 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             candidateAnalysis.mayCandidate(stationMap, ud->getUserConfig().tourDate);
         } else {
             if (ud->candidateSetting.isCandidate && ud->candidateSetting.prioCandidate) {
-                candidateAnalysis.mayCandidate(stationMap, ud->getUserConfig().tourDate);
+                hasCandidate = candidateAnalysis.mayCandidate(stationMap, ud->getUserConfig().tourDate);
             }
 
-            if (can_booking) {
+            if (can_booking && !hasCandidate) {
                 Analysis ana(availableTrain);
                 std::pair<QString, QString> ticketStr;
                 QVector<QPair<QString, QChar>> submitSeatType;
-                int trainNoIdx = ana.analysisTrain(ticketStr, submitSeatType, stationMap);
+                trainNoIdx = ana.analysisTrain(ticketStr, submitSeatType, stationMap);
                 if (trainNoIdx != -1) {
                     if (!ticketStr.first.isEmpty() && !ticketStr.second.isEmpty()) {
                         ud->submitTicketInfo.trainCode = availableTrain[trainNoIdx][ESTATIONTRAINCODE];
@@ -593,7 +599,9 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                     }
                 }
             }
-            if (ud->candidateSetting.isCandidate && !ud->candidateSetting.prioCandidate) {
+            if (ud->candidateSetting.isCandidate &&
+                !ud->candidateSetting.prioCandidate &&
+                trainNoIdx == -1) {
                 candidateAnalysis.mayCandidate(stationMap, ud->getUserConfig().tourDate);
             }
         }
@@ -785,7 +793,14 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             button = new QPushButton;
             connect(button, &QPushButton::clicked, this, &MainWindow::addTrainToSelected);
         }
-        button->setText(trainInfo[ETEXTINFO] == _("预订") ? tr("添加") : trainInfo[ETEXTINFO]);
+        curText = trainInfo[ETEXTINFO] == _("预订") ? tr("添加") : trainInfo[ETEXTINFO];
+        if (curText.contains(_("<br/>"))) {
+            curText.remove(_("<br/>"));
+        }
+        if (curText.length() > 4) {
+            button->setToolTip(curText);
+        }
+        button->setText(curText);
         if (ud->runStatus != EIDLE) {
             //button->setStyleSheet(QStringLiteral("QPushButton { background-color: #A9A9A9; color: #4F4F4F; }"));
             button->setEnabled(false);
@@ -1158,8 +1173,8 @@ void MainWindow::enterGrabMode()
 void MainWindow::exitGrabMode()
 {
     UserData *ud = UserData::instance();
-    ud->instance()->setRunStatus(EIDLE);
-    ud->instance()->candidateRunStatus = EIDLE;
+    ud->setRunStatus(EIDLE);
+    ud->candidateRunStatus = EIDLE;
     grabTicketPb->setText(tr("开始"));
     fromStationLe->setEnabled(true);
     toStationLe->setEnabled(true);
@@ -1346,12 +1361,14 @@ void MainWindow::doGrabTicket()
             grabTicketInterval = dist(*QRandomGenerator::global());
         } else if (settingDialog->isFixedTimeMode()) {
             enterTimes++;
-            if (enterTimes >= 30) {
+            if (enterTimes >= 15) {
                 settingDialog->setQueryTicketMode(ESHORTINTERVAL);
                 enterTimes = 0;
             }
+            grabTicketInterval = 1000;
         } else if (settingDialog->isCustomMode()) {
-            grabTicketInterval = UserData::instance()->grabSetting.grabIntervalSeconds * 1000;
+            grabTicketInterval = ud->grabSetting.grabIntervalSeconds > 0 ?
+                ud->grabSetting.grabIntervalSeconds * 1000 : 1000;
         } else {
             grabTicketInterval = 3000;
         }

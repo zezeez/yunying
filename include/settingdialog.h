@@ -21,6 +21,7 @@ public:
     void setUp();
     void setSelectedTrainNo();
     void setUnselectedTrainNo();
+    void closeCandidate();
     void candidateSetting(QTabWidget *tab);
     void sendMailWork(const QString &mailMsg);
     void sendMail(const QString &mailMsg);
@@ -56,6 +57,7 @@ public:
 #ifdef HAS_CDN
     QCheckBox *cdnCb;
 #endif
+    QCheckBox *candidateCB;
 };
 
 #endif // SETTINGDIALOG_H
