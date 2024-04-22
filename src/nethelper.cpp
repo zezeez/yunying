@@ -2235,6 +2235,52 @@ void NetHelper::confirmHB()
     QString acceptTrainTime;
     QVector<QString> v;
 
+    QString dispDate;
+    QString dispTrain;
+    QString dispSeat;
+    QSet<QChar> seatCode;
+    int totalTrain = 0;
+    int totalSeat = 0;
+    for (i = 0; i < ud->candidateInfo.diffDateTrain.size(); i++) {
+        struct CandidateDateInfo &trainDate = ud->candidateInfo.diffDateTrain[i];
+        dispDate += trainDate.date + ',';
+    }
+    if (!dispDate.isEmpty()) {
+        dispDate.truncate(dispDate.size() - 1);
+    }
+    if (!ud->candidateInfo.diffDateTrain.isEmpty()) {
+        struct CandidateDateInfo &trainDate = ud->candidateInfo.diffDateTrain[0];
+        for (j = 0; j < trainDate.train.size(); j++) {
+            if (j < 5) {
+                dispTrain += trainDate.train[j].trainCode + ',';
+            } else {
+                break;
+            }
+        }
+        totalTrain = trainDate.train.size() < 60 ? trainDate.train.size() : 60;
+        if (!dispTrain.isEmpty()) {
+            dispTrain.truncate(dispTrain.size() - 1);
+        }
+        if (!trainDate.train.isEmpty()) {
+            for (k = 0; k < trainDate.train[0].seatType.size(); k++) {
+                if (k < 3) {
+                    dispSeat += seatTypeSubmtiCodeTransToDesc(trainDate.train[0].seatType[k]) + ',';
+                }
+                if (!seatCode.contains(trainDate.train[0].seatType[k])) {
+                    seatCode.insert(trainDate.train[0].seatType[k]);
+                }
+            }
+            totalSeat = seatCode.size();
+            if (!dispSeat.isEmpty()) {
+                dispSeat.truncate(dispSeat.size() - 1);
+            }
+        }
+    }
+    w->formatOutput(_("正在确认候补日期%1的%2共%3趟车次, %4共%5个席别").arg(dispDate, dispTrain)
+                        .arg(totalTrain)
+                        .arg(dispSeat)
+                        .arg(totalSeat));
+
     for (i = 0; i < ud->candidateInfo.diffDateTrain.size(); i++) {
         struct CandidateDateInfo &trainDate = ud->candidateInfo.diffDateTrain[i];
         for (j = 0; j < trainDate.train.size(); j++) {
@@ -2258,6 +2304,7 @@ void NetHelper::confirmHB()
             v.append(date.remove('-'));
         }
     }
+
     if (!ud->candidateInfo.diffDateTrain.isEmpty() &&
         !ud->candidateInfo.diffDateTrain[0].train.isEmpty()) {
         seatType.append(ud->candidateInfo.diffDateTrain[0].train[0].seatType);

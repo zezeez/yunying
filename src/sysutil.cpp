@@ -114,7 +114,7 @@ int SysUtil::setSysTime(const QDateTime &newTime)
         } else if (errno == EINVAL) {
             w->formatOutput(_("更新系统时间失败，原因：参数错误"));
         } else {
-            w->formatOutput(_("更新系统时间失败，原因：未知"));
+            w->formatOutput(_("更新系统时间失败，原因：") + strerror(errno));
         }
     } else {
         w->formatOutput("更新系统时间成功");
