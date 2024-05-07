@@ -192,12 +192,6 @@ void LoginDialog::setUp()
     UserData::instance()->runStatus = EIDLE;
     qrCodeRefreshTimer = nullptr;
     //show();
-#ifdef HAS_CDN
-    UserData *ud = UserData::instance();
-    if (ud->generalSetting.cdnEnable) {
-        NetHelper::instance()->getCdn();
-    }
-#endif
 }
 
 void LoginDialog::tabIndexChanged(int index)

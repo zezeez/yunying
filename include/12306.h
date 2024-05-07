@@ -26,8 +26,10 @@
 #define STATIONNAMEVERSION "1.9302"
 
 #define QUERYTICKETBASEURL BASEURL PUBLICNAME "/leftTicket/queryE"
-#define USERAGENT "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"
+//#define USERAGENT "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"
+#define USERAGENT "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
+#define LEFTTICKETINIT BASEURL PUBLICNAME "/leftTicket/init"
 #define QEURYTRAINSTOPSTATION BASEURL PUBLICNAME "/czxx/queryByTrainNo"
 
 // 本地登录
@@ -73,6 +75,25 @@
 #define CONFIRMHB BASEURL PUBLICNAME "/afterNate/confirmHB"
 #define CANDIDATEQUERYQUEUE BASEURL PUBLICNAME "/afterNate/queryQueue"
 #define LINEUPTOPAYCONFIRM BASEURL PUBLICNAME "/view/lineUp_payConfirm.html"
+
+// 支付
+#define QUERYNOCOMPLETEORDER BASEURL PUBLICNAME "/queryOrder/queryMyOrderNoComplete"
+#define PAYNOCOMPLETEORDER BASEURL PUBLICNAME "/queryOrder/continuePayNoCompleteMyOrder"
+#define PAYORDERINIT BASEURL PUBLICNAME "/payOrder/init"
+#define PAYCHECKNEW BASEURL PUBLICNAME "/payOrder/paycheckNew"
+#define PAYGATEWAY "https://epay.12306.cn/pay/payGateway"
+#define PAYWEBBUSINESS "https://epay.12306.cn/pay/webBusiness"
+
+// 候补支付
+#define CQUERYQUEUE BASEURL PUBLICNAME "/afterNateOrder/queryQueue"
+#define CPAYNOCOMPLETEORDER BASEURL PUBLICNAME "/afterNateOrder/continuePayNoCompleteMyOrder"
+#define CPAYORDERINIT BASEURL PUBLICNAME "/afterNatePay/payOrderInit"
+#define CPAYCHECK BASEURL PUBLICNAME "/afterNatePay/paycheck"
+
+// 起售查询
+#define QUERYALLCACHESALETIME BASEURL "/index/otn/index12306/queryAllCacheSaleTime"
+#define QUERYSCNAME BASEURL "/index/otn/index12306/queryScSname"
+#define QUERYLCTIME BASEURL "/index/otn/index12306/queryLCtime"
 
 // 票类别
 #define TICKETADULT "1"  // 成人

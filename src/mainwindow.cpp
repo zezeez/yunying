@@ -131,6 +131,9 @@ MainWindow::MainWindow(QWidget *parent) :
     loginDialog = new LoginDialog;
     loginDialog->setUp();
 
+    selltimeDialog = new SellTimeQueryDialog(this);
+    selltimeDialog->setup();
+
     doGrabTicketTimer = new QTimer;
     connect(doGrabTicketTimer, &QTimer::timeout, this, &MainWindow::doGrabTicket);
     fixedTimeGrabTimer = new QTimer;
@@ -172,8 +175,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     readSettings();
 
-    //handleReply();
     setTabOrder(fromStationLe, toStationLe);
+    selltimeDialog->setQueryText(UserData::instance()->userConfig.staFromName);
+
     statusBar()->showMessage(QStringLiteral("准备就绪"));
     resize(QSize(1200, 800));
 }
@@ -220,8 +224,14 @@ void MainWindow::createDockWidget()
     gLayout->addWidget(pb, 3, 0, 1, 1);
     gLayout->addWidget(selectedSeatTipsLabel, 3, 1, 1, 1);
 
+    QGridLayout *rightLayout = new QGridLayout;
+    pb = new QPushButton(tr("起售查询"));
+    connect(pb, &QPushButton::clicked, selltimeDialog, &SellTimeQueryDialog::show);
+    rightLayout->addWidget(pb);
+
     layout->addLayout(gLayout);
     layout->addWidget(browser);
+    layout->addLayout(rightLayout);
     widget->setLayout(layout);
     dock->setWidget(widget);
 }
@@ -269,6 +279,16 @@ void MainWindow::createUiComponent()
     connect(action, &QAction::triggered, this, &MainWindow::syncTime);
     menu->addAction(action);
 
+    action = new QAction(tr("&支付未支付的订单"), this);
+    action->setStatusTip(tr("支付未支付的订单"));
+    connect(action, &QAction::triggered, NetHelper::instance(), &NetHelper::queryNoCompleteOrder);
+    menu->addAction(action);
+
+    action = new QAction(tr("&支付未支付的候补订单"), this);
+    action->setStatusTip(tr("支付未支付的候补订单"));
+    connect(action, &QAction::triggered, NetHelper::instance(), &NetHelper::cqueryQueue);
+    menu->addAction(action);
+
     menu = menuBar()->addMenu(tr("&显示"));
 
     action = new QAction(tr("&历史提交..."), this);
@@ -309,21 +329,6 @@ void MainWindow::createUiComponent()
     menu->addAction(action);
 
     initStatusBars();
-    // Test
-    /*QTimer *timer = new QTimer;
-    connect(timer, &QTimer::timeout, this, [=] () {
-        std::uniform_int<int> dist;
-        int d;
-        QVector<int> v;
-        for (int i = 0; i < 6; i++) {
-            d = dist(*QRandomGenerator::global());
-            v << d;
-        }
-        statChart->update(v);
-        delayChart->update(d * 20);
-    });
-    timer->setInterval(5000);
-    timer->start();*/
 }
 
 void MainWindow::userStartStationChanged()
@@ -451,6 +456,8 @@ bool MainWindow::canAddNewTrain(const QString &trainTime)
     return false;
 }
 
+
+// 处理查询余票返回结果
 void MainWindow::processQueryTicketReply(QVariantMap &data)
 {
     QStandardItemModel *model = static_cast<QStandardItemModel *>(tableView->model());
@@ -1673,7 +1680,6 @@ void MainWindow::closeEvent(QCloseEvent *event)
     } else {
         event->ignore();
     }*/
-    writeSettings();
     event->accept();
 }
 
@@ -1763,11 +1769,6 @@ void MainWindow::readSettings()
     tourDateDe->setDateRange(curDate, curDate.addDays(14));
 }
 
-void MainWindow::writeSettings()
-{
-    UserData::instance()->writeConfigFile();
-}
-
 void MainWindow::initStatusBars()
 {
     /*QLabel *label = new QLabel;
@@ -1831,13 +1832,15 @@ void MainWindow::about()
 {
     QMessageBox::about(this, tr("关于云映"),
                        tr("<p>云映客户端版本" THISVERSION "</p>"
-                          "<p>本程序<a href=\"www.op9.top\">云映</a>仅限于个人使用，不可商用</p>"
+                          "<p>本程序<a href=\"https://www.op9.top\">云映</a>仅限于个人使用，不可商用</p>"
+                          "<p>本软件完全由个人靠业余时间开发，作者承诺软件不会上传或存储任何个人隐私信息，并且作者不会通过软件非法获利，请放心使用.</p>"
+                          "<p>获取帮助&&问题反馈请发送邮件至gethelp@88.com</p>"
                           ));
 }
 
 void MainWindow::onlineHelp()
 {
-    QDesktopServices::openUrl(QUrl(_("http:://www.op9.top/help.html")));
+    QDesktopServices::openUrl(QUrl(_("https://www.op9.top/help.html")));
 }
 
 MainWindow::~MainWindow()

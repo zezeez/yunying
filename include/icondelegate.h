@@ -47,6 +47,8 @@ public:
             text = index.data(Qt::ToolTipRole).toString();
             rect = option.rect;
             painter->save();
+            painter->setRenderHint(QPainter::Antialiasing);  //抗锯齿
+            painter->setRenderHints(QPainter::SmoothPixmapTransform);  //平滑像素图变换
             if (isStart) {
                 rect.setWidth(start.width());
                 rect.setHeight(start.height());
@@ -72,6 +74,8 @@ public:
             text = index.data(Qt::ToolTipRole).toString();
             rect = option.rect;
             painter->save();
+            painter->setRenderHint(QPainter::Antialiasing);  //抗锯齿
+            painter->setRenderHints(QPainter::SmoothPixmapTransform);  //平滑像素图变换
             if (isEnd) {
                 rect.setWidth(end.width());
                 rect.setHeight(end.height());
@@ -102,9 +106,12 @@ public:
                 //QPixmap pixmap2 = fu.scaled(option.rect.width() / 2, option.rect.height(), Qt::KeepAspectRatio);
                 rect = option.rect;
                 rect.setLeft(rect.left());
-                //rect.setTopLeft(QPoint(rect.x(), rect.y() + (rect.height() - fu.height()) / 2));
-                rect.setWidth(fu.width());
-                //rect.setHeight(fu.height());
+                //rect.setTopLeft(QPoint(rect.x(), rect.y() + (rect.height() - fu.height() + 8) / 2));
+                rect.setTopLeft(QPoint(rect.x(), rect.y() + 2));
+                rect.setWidth(fu.width() / 2);
+                rect.setHeight(option.rect.height() - 4);
+                painter->setRenderHint(QPainter::Antialiasing);  //抗锯齿
+                painter->setRenderHints(QPainter::SmoothPixmapTransform);  //平滑像素图变换
                 painter->drawPixmap(rect, fu);
                 painter->restore();
                 handled = true;
@@ -112,13 +119,17 @@ public:
             if (isZi) {
                 //QPixmap pixmap2 = zi.scaled(option.rect.width() / 2, option.rect.height(), Qt::KeepAspectRatio);
                 painter->save();
-                int l1[2] = { 0, fu.width() };
+                int l1[2] = { 0, fu.width() / 2 + 4 };
                 rect = option.rect;
                 int left = 0;
                 left += rect.left();
                 left += l1[isFu];
                 rect.setLeft(left);
-                rect.setWidth(zi.width());
+                rect.setTopLeft(QPoint(rect.x(), rect.y() + 2));
+                rect.setWidth(zi.width() / 2);
+                rect.setHeight(option.rect.height() - 4);
+                painter->setRenderHint(QPainter::Antialiasing);  //抗锯齿
+                painter->setRenderHints(QPainter::SmoothPixmapTransform);  //平滑像素图变换
                 painter->drawPixmap(rect, zi);
                 painter->restore();
                 handled = true;
@@ -126,14 +137,18 @@ public:
             if (isDong) {
                 painter->save();
                 rect = option.rect;
-                int l1[2] = { 0, fu.width() };
-                int l2[2] = { 0, zi.width() };
+                int l1[2] = { 0, fu.width() / 2 + 4 };
+                int l2[2] = { 0, zi.width() / 2 + 4 };
                 int left = 0;
                 left += rect.left();
                 left += l1[isFu];
                 left += l2[isZi];
                 rect.setLeft(left);
-                rect.setWidth(dong.width());
+                rect.setTopLeft(QPoint(rect.x(), rect.y() + 2));
+                rect.setWidth(dong.width() / 2);
+                rect.setHeight(option.rect.height() - 4);
+                painter->setRenderHint(QPainter::Antialiasing);  //抗锯齿
+                painter->setRenderHints(QPainter::SmoothPixmapTransform);  //平滑像素图变换
                 painter->drawPixmap(rect, dong);
                 painter->restore();
                 handled = true;

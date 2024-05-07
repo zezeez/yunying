@@ -153,25 +153,31 @@ void SeatTypeDialog::setUp()
     vLayout3->addWidget(label);
     vLayout3->addWidget(selected);
 #if 0
-    QImage *image = new QImage(18, 18, QImage::Format_RGB32);
+    QImage *image = new QImage(32, 32, QImage::Format_RGB32);
 
     QPainter painter(image); // 创建一个绘制器并将它与 Image 关联起来
+    painter.setRenderHint(QPainter::Antialiasing);  //抗锯齿
+    painter.setRenderHints(QPainter::SmoothPixmapTransform);  //平滑像素图变换
 
-    painter.fillRect(image->rect(), QBrush(QColor(255,127,36))); // 填充矩形背景
+    //painter.drawRoundedRect(0, 0, 32, 32, 50, 50);
+    painter.fillRect(image->rect(), QBrush(QColor(255,127,36))); // 橙色
+    //painter.fillRect(image->rect(), QBrush(Qt::red)); // 红色
+    //painter.fillRect(image->rect(), QBrush(QColor(0,205,205))); // cyan
 
-    QPen pen(Qt::white, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    //QPen pen(Qt::white, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    QPen pen(Qt::white, 1);
     painter.setPen(pen);
 
     //painter.drawLine(50, 250, 200, 100);  // 绘制直线
     //painter.drawRect(0, 0, 15, 15);  // 绘制矩形
     //painter.drawEllipse(250, 50, 100, 150);  // 绘制椭圆
     QFont font;
-    font.setPointSize(12);
+    font.setPointSize(18);
     //font.setBold(true);
     painter.setFont(font);
 
     QString text = tr("动");
-    QRect rect = painter.boundingRect(1, 1, 16, 16, Qt::AlignCenter, text);
+    QRect rect = painter.boundingRect(1, 1, 32, 32, Qt::AlignCenter, text);
 
     painter.drawText(rect, text);
 

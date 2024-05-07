@@ -144,10 +144,10 @@ void Message::encode(char* buffer, const uint bufferSize, uint &validSize)
     fields += ((mRA & 1) << 7);
     fields += ((mRCode & 15));
     buff.put16bits(fields);
-    buff.put16bits(mQueries.size());
-    buff.put16bits(mAnswers.size());
-    buff.put16bits(mAuthorities.size());
-    buff.put16bits(mAdditional.size());
+    buff.put16bits((uint16)mQueries.size());
+    buff.put16bits((uint16)mAnswers.size());
+    buff.put16bits((uint16)mAuthorities.size());
+    buff.put16bits((uint16)mAdditional.size());
 
     // encode queries
     for(std::vector<QuerySection*>::iterator it = mQueries.begin(); it != mQueries.end(); ++it)

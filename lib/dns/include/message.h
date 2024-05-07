@@ -192,10 +192,10 @@ class Message {
         void setRCode(const uint newRCode) { mRCode = newRCode & 15; }
         uint getRCode() { return mRCode; }
 
-        uint getQdCount() { return mQueries.size(); }
-        uint getAnCount() { return mAnswers.size(); }
-        uint getNsCount() { return mAuthorities.size(); }
-        uint getArCount() { return mAdditional.size(); }
+        uint getQdCount() { return (uint)mQueries.size(); }
+        uint getAnCount() { return (uint)mAnswers.size(); }
+        uint getNsCount() { return (uint)mAuthorities.size(); }
+        uint getArCount() { return (uint)mAdditional.size(); }
 
         void addQuery(QuerySection* qs) { mQueries.push_back(qs); };
         std::vector<QuerySection*> getQueries() { return mQueries; };

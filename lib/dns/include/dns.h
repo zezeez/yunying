@@ -44,11 +44,12 @@ typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long ulong;
 typedef unsigned char byte;
+typedef unsigned int short uint16;
 
 // maximal length of domain label name
-const uint MAX_MSG_LEN = 512;
-const uint MAX_LABEL_LEN = 63;
-const uint MAX_DOMAIN_LEN = 255;
+#define MAX_MSG_LEN 512
+#define MAX_LABEL_LEN 63
+#define MAX_DOMAIN_LEN 255
 
 // CLASS types
 enum eClass {

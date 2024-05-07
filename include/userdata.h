@@ -341,6 +341,27 @@ struct GeneralSetting {
     QString timeServer;
 };
 
+enum PayMethodE {
+    EALIPAY,
+    EWXPAY,
+    EUNIONPAY,
+    EGONGSHANGYHPAY,
+    ENONGYEYHPAY,
+    EZHONGGUOYHPAY,
+    EJIANSHEYHPAY,
+    EZHAOSHANGYHPAY,
+    EYOUCHUYHPAY,
+    EJIAOTONGYHPAY,
+    EZHONGTIEYTPAY,
+    EVISAPAY,
+    EPAYMETHODMAX
+};
+
+struct PaySetting {
+    bool activePay;
+    enum PayMethodE payMethod;
+};
+
 class UserData
 {
 public:
@@ -401,10 +422,6 @@ public:
     const QString getpassengerTickets();
     bool isTimeInRange(int hour, int minute);
 
-    bool readConfigFile();
-    bool readConfig();
-    bool writeConfigFile();
-    bool writeConfig();
     void setRunStatus(enum RUNSTATUSE status) {
         lastRunStatus = runStatus;
         runStatus = status;
@@ -429,6 +446,7 @@ public:
     struct CandidateSetting candidateSetting;
     struct CandidateInfo candidateInfo;
     struct NotifySetting notifySetting;
+    struct PaySetting paySetting;
     QVector<struct PassengerInfo> passenger;  // 旅客信息
     QVector<struct PassengerInfo> djPassenger;  //  受让人旅客信息
     QString apptk;
@@ -437,10 +455,6 @@ public:
     enum RUNSTATUSE lastRunStatus;
     enum RUNSTATUSE candidateRunStatus;
     bool lastRunSuccess;
-
-    void readXBEL();
-    QXmlStreamReader rxml;
-    QXmlStreamWriter wxml;
 };
 
 QString seatTypeSubmtiCodeTransToDesc(QChar seatType);

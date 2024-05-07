@@ -14,43 +14,6 @@ void UserData::setStationCode(const QByteArray &name, const QByteArray &code)
     staCode->insert(QString::fromUtf8(name), QString::fromUtf8(code));
 }
 
-bool UserData::readConfigFile()
-{
-    QFile file(QStringLiteral("./config.xml"));
-    if (!file.open(QIODevice::ReadOnly)) {
-        return false;
-    }
-    rxml.setDevice(&file);
-
-    if (rxml.readNextStartElement()) {
-        readConfig();
-    }
-
-    return !rxml.error();
-}
-
-bool UserData::readConfig()
-{
-    Q_ASSERT(rxml.isStartElement() && rxml.name() == _("config"));
-
-    while (rxml.readNextStartElement()) {
-        if (rxml.name() == _("FromStationName"))
-            userConfig.staFromName = rxml.readElementText();
-        else if (rxml.name() == _("ToStationName"))
-            userConfig.staToName = rxml.readElementText();
-        else if (rxml.name() == _("TourDate"))
-            userConfig.tourDate = rxml.readElementText();
-        else if (rxml.name() == _("Account"))
-            loginInfo.account = rxml.readElementText();
-        else if (rxml.name() == _("Passwd"))
-            loginInfo.passwd = rxml.readElementText();
-        else {
-            qDebug() << "Ignore unrecognise field " << rxml.name() << Qt::endl;
-        }
-    }
-    return true;
-}
-
 QString UserData::seatTypeToDesc(int idx)
 {
     switch (idx) {
@@ -125,50 +88,6 @@ bool UserData::whatsSelect(bool onlyNormal)
         return grabSetting.selectedPassenger.size() != 0;
     }
     return grabSetting.selectedDjPassenger.size() != 0;
-}
-
-const QString UserData::getpassengerTickets()
-{
-    QVector<struct PassengerInfo>::const_iterator it;
-    QString ticketStr;
-    for (it = grabSetting.selectedPassenger.cbegin();
-         it != grabSetting.selectedPassenger.cbegin(); ++it) {
-        //ticketStr = grabSetting
-    }
-    return ticketStr;
-}
-
-bool UserData::writeConfigFile()
-{
-    QFile file(QStringLiteral("./config.xml"));
-    if (!file.open(QIODevice::WriteOnly)) {
-        return false;
-    }
-    wxml.setDevice(&file);
-
-    wxml.writeStartDocument();
-    //wxml.writeDTD(QStringLiteral("<!DOCTYPE xbel>"));
-    //wxml.writeStartElement(QStringLiteral("xbel"));
-    //wxml.writeAttribute(QStringLiteral("version"), QStringLiteral("1.0"));
-    writeConfig();
-
-    wxml.writeEndDocument();
-    return true;
-}
-
-bool UserData::writeConfig()
-{
-    wxml.writeStartElement(QStringLiteral("config"));
-    //wxml.writeAttribute(QStringLiteral("station"))
-    wxml.writeTextElement(QStringLiteral("FromStationName"), userConfig.staFromName);
-    //wxml.writeTextElement(QStringLiteral("FromStationCode"), userConfig.staFromCode);
-    wxml.writeTextElement(QStringLiteral("ToStationName"), userConfig.staToName);
-    //wxml.writeTextElement(QStringLiteral("ToStationCode"), userConfig.staToCode);
-    wxml.writeTextElement(QStringLiteral("TourDate"), userConfig.tourDate);
-    wxml.writeTextElement(QStringLiteral("Account"), loginInfo.account);
-    wxml.writeTextElement(QStringLiteral("Passwd"), loginInfo.passwd);
-    wxml.writeEndElement();
-    return true;
 }
 
 bool UserData::isTimeInRange(int hour, int minute)

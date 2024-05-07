@@ -25,6 +25,19 @@
         <file>images/choosed_seat.png</file>
         <file>images/unchoosed_seat.png</file>
         <file>images/yy.png</file>
+        <file>images/selected.svg</file>
+        <file>images/bank_gsyh.png</file>
+        <file>images/bank_jsyh.png</file>
+        <file>images/bank_jtyh.png</file>
+        <file>images/bank_nyyh.png</file>
+        <file>images/bank_wk.png</file>
+        <file>images/bank_wx.png</file>
+        <file>images/bank_ycyh.png</file>
+        <file>images/bank_zfb.png</file>
+        <file>images/bank_zgyh.png</file>
+        <file>images/bank_zgyl.png</file>
+        <file>images/bank_zsyh.png</file>
+        <file>images/bank_ztytk.png</file>
     </qresource>
     <qresource prefix="/res">
         <file>main.qss</file>

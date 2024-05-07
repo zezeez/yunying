@@ -11,9 +11,6 @@
 
 MainWindow *w;
 
-char *encode_base64(const uint8_t *in, size_t len);
-uint8_t *decode_base64(const char *in, size_t len, size_t *olen);
-
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);

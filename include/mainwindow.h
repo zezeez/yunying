@@ -25,6 +25,7 @@
 #include "chart/barchart.h"
 #include "chart/linechart.h"
 #include "lib/ntp/include/ntp.h"
+#include "selltimequerydialog.h"
 
 namespace Ui {
 class MainWindow;
@@ -66,7 +67,6 @@ public:
     void createHistoryInfoDialog();
     void createRightMenu();
     void readSettings();
-    void writeSettings();
     void syncTime();
     void uamLogined();
     void uamNotLogined();
@@ -118,6 +118,7 @@ public:
     SeatTypeDialog *seatTypeDialog;
     SeatDialog *seatDialog;
     QDialog *historyInfoDialog;
+    SellTimeQueryDialog *selltimeDialog;
     QLabel *selectedPassengerTipsLabel;
     QLabel *selectedTrainTipsLabel;
     QLabel *selectedSeatTypeTipsLabel;

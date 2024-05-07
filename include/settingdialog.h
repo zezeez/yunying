@@ -37,6 +37,7 @@ public:
     void sendWxNotifyReply(QVariantMap &varMap);
     void queryWxNotifyStatus();
     void queryWxNotifyStatusReply(QVariantMap &varMap);
+    void paySetting(QTabWidget *tab);
 
 public:
     QVector<bool> trainTypeShowVec;

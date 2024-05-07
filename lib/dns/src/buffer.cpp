@@ -154,7 +154,7 @@ void Buffer::put8bits(const uchar value)
     mBufferPtr++;
 }
 
-dns::uint Buffer::get16bits()
+dns::uint16 Buffer::get16bits()
 {
     // check if we are inside buffer
     checkAvailableSpace(2);
@@ -166,7 +166,7 @@ dns::uint Buffer::get16bits()
     return value;
 }
 
-void Buffer::put16bits(const uint value)
+void Buffer::put16bits(const uint16 value)
 {
     // check if we are inside buffer
     checkAvailableSpace(2);
@@ -246,8 +246,8 @@ std::string Buffer::getDnsCharacterString()
 
 void Buffer::putDnsCharacterString(const std::string& value)
 {
-    put8bits(value.length());
-    putBytes(value.c_str(), value.length());
+    put8bits((uchar)value.length());
+    putBytes(value.c_str(), (uchar)value.length());
 }
 
 std::string Buffer::getDnsDomainName(const bool compressionAllowed)
@@ -264,7 +264,8 @@ std::string Buffer::getDnsDomainName(const bool compressionAllowed)
     }
 
     // read domain name from buffer
-    while (true)
+    bool buffEnded = (uint)(mBufferPtr - mBuffer) >= mBufferSize;
+    while (!buffEnded)
     {
         // get first byte to decide if we are reading link, empty string or string of nonzero length
         uint ctrlCode = get8bits();
@@ -305,6 +306,7 @@ std::string Buffer::getDnsDomainName(const bool compressionAllowed)
 
             domain.append(getBytes(ctrlCode), ctrlCode); // read label
         }
+        buffEnded = (uint)(mBufferPtr - mBuffer) >= mBufferSize;
     }
 
     // check if domain contains only [A-Za-z0-9-] characters
@@ -404,7 +406,7 @@ void Buffer::putDnsDomainName(const std::string& value, const bool compressionAl
             uint subDomainLen = domainPos - domainLabelPos;
 
             // find buffer range that makes sense to search in
-            uint buffLen = mBufferPtr - mBuffer;
+            uint buffLen = (uint)(mBufferPtr - mBuffer);
             // search if buffer is large enough for searching
             if (buffLen > subDomainLen)
             {
@@ -476,7 +478,7 @@ void Buffer::checkAvailableSpace(const uint additionalSpace)
         throw(Exception("Buffer pointer is invalid"));
 
     // get position in buffer
-    uint bufferPos = (mBufferPtr - mBuffer);
+    uint bufferPos = (uint)(mBufferPtr - mBuffer);
 
     // check if we are inside buffer
     if ((bufferPos + additionalSpace) > mBufferSize)

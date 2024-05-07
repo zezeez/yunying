@@ -62,7 +62,7 @@ class Buffer
         Buffer(char* buffer, uint bufferSize) : mBuffer(buffer), mBufferSize(bufferSize), mBufferPtr(buffer) { }
 
         // get current position in buffer
-        uint getPos() { return mBufferPtr - mBuffer; }
+        uint getPos() { return (uint)(mBufferPtr - mBuffer); }
 
         // set current position in buffer
         void setPos(const uint pos);
@@ -75,8 +75,8 @@ class Buffer
         void put8bits(const uchar value);
 
         // Helper function that get 16 bits from the buffer and keeps it an int.
-        uint get16bits();
-        void put16bits(const uint value);
+        uint16 get16bits();
+        void put16bits(const uint16 value);
 
         // Helper function that get 32 bits from the buffer and keeps it an int.
         uint get32bits();

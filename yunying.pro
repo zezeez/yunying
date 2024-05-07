@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui network multimedia charts
+QT       += core gui network multimedia charts xml
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -29,6 +29,7 @@ INCLUDEPATH += include
 # DEPENDPATH = .
 
 SOURCES += \
+    lib/base64/src/base64.cpp \
     lib/dns/src/buffer.cpp \
     lib/dns/src/message.cpp \
     lib/dns/src/qs.cpp \
@@ -46,6 +47,7 @@ SOURCES += \
     src/passengerdialog.cpp \
     src/seatdialog.cpp \
     src/seattypedialog.cpp \
+    src/selltimequerydialog.cpp \
     src/serverip.cpp \
     src/settingdialog.cpp \
     src/sliderwidget.cpp \
@@ -73,6 +75,7 @@ HEADERS += \
     include/passengerdialog.h \
     include/seatdialog.h \
     include/seattypedialog.h \
+    include/selltimequerydialog.h \
     include/serverip.h \
     include/settingdialog.h \
     include/sliderwidget.h \
@@ -81,6 +84,7 @@ HEADERS += \
     include/userdata.h \
     include/completeedit.h \
     include/version.h \
+    lib/base64/include/base64.h \
     lib/dns/include/buffer.h \
     lib/dns/include/dns.h \
     lib/dns/include/exception.h \

@@ -22,6 +22,7 @@
 #include "nethelper.h"
 #include "lib/sm4/include/sm4.h"
 #include "12306.h"
+#include "completeedit.h"
 
 #define _ QStringLiteral
 
@@ -255,14 +256,19 @@ void SettingDialog::commonSetting(QTabWidget *tab)
 
 #ifdef HAS_CDN
     cdnCb = new QCheckBox(tr("启用CDN"));
+    checked = setting.value(_("setting/cdn_enable"), false).value<bool>();
+    cdnCb->setChecked(checked);
     connect(cdnCb, &QCheckBox::toggled, this, [=] (bool checked) {
         UserData *ud = UserData::instance();
         ud->generalSetting.cdnEnable = checked;
         QSettings setting;
         setting.setValue(_("setting/cdn_enable"), checked);
+        NetHelper *nh = NetHelper::instance();
+        if (checked && nh->cdn.getCurCdn().isEmpty()) {
+            nh->getCdn();
+        }
     });
-    checked = setting.value(_("setting/cdn_enable"), false).value<bool>();
-    cdnCb->setChecked(checked);
+    ud->generalSetting.cdnEnable = checked;
     vLayout->addWidget(cdnCb);
 #endif
 
@@ -341,10 +347,8 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     vlayout->addLayout(hlayout);
 
     QCheckBox *cb = new QCheckBox(tr("自动冻结"));
-    cb->setToolTip(tr("由于cdn存在缓存数据的原因，可能后台服务器已经没有票了，但是\n"
-                      "cdn缓存显示有票，这时候提交请求到后台服务器是返回无票的（或者\n"
-                      "是排队人数大于余票张数），遇到这种情况标记该车次数据为缓存并\n"
-                      "冻结该车次一段时间内不再提交"));
+    cb->setToolTip(tr("为防止频繁的无效提交，遇到订单提交失败时（缓存或其它原因）\n"
+                      "冻结该车次在指定的时间内不再提交，谨慎关闭这项功能"));
     QSpinBox *sbox = new QSpinBox;
     sbox->setMinimum(30);
     sbox->setMaximum(3600);
@@ -1343,6 +1347,70 @@ void SettingDialog::wxNotifySetting(QTabWidget *tab)
     tab->addTab(widget, tr("微信通知"));
 }
 
+void SettingDialog::paySetting(QTabWidget *tab)
+{
+    QVBoxLayout *vlayout = new QVBoxLayout;
+    MultiAreaLabel *mlabel = new MultiAreaLabel(this, 12);
+    QCheckBox *activePayCB = new QCheckBox(_("主动唤起支付（非自动支付，仅打开支付页面，仍需手动支付）"));
+    connect(activePayCB, &QCheckBox::toggled, this, [mlabel](bool checked) {
+        UserData *ud = UserData::instance();
+        ud->paySetting.activePay = checked;
+        QSettings setting;
+        setting.setValue(_("pay_setting/active_pay"), checked);
+        if (checked) {
+            mlabel->show();
+        } else {
+            mlabel->hide();
+        }
+    });
+
+    QStringList bankFiles = {
+                             ":/icon/images/bank_zfb.png",
+                             ":/icon/images/bank_wx.png",
+                             ":/icon/images/bank_zgyl.png",
+                             ":/icon/images/bank_gsyh.png",
+                            ":/icon/images/bank_nyyh.png",
+                            ":/icon/images/bank_zgyh.png",
+                            ":/icon/images/bank_jsyh.png",
+                            ":/icon/images/bank_zsyh.png",
+                            ":/icon/images/bank_ycyh.png",
+                            ":/icon/images/bank_jtyh.png",
+                            ":/icon/images/bank_ztytk.png",
+                            ":/icon/images/bank_wk.png"
+    };
+    mlabel->setAreasPixmap(bankFiles);
+    connect(mlabel, &MultiAreaLabel::clicked, this, [mlabel]() {
+        int areaSel = mlabel->areaSelected();
+        if (areaSel < EPAYMETHODMAX) {
+            QSettings setting;
+            setting.setValue(_("pay_setting/pay_method"), areaSel);
+        }
+        UserData *ud = UserData::instance();
+        if (areaSel < EPAYMETHODMAX) {
+            ud->paySetting.payMethod = (enum PayMethodE)areaSel;
+        }
+    });
+    QSettings setting;
+    bool checked = setting.value(_("pay_setting/active_pay"), false).value<bool>();
+    activePayCB->setChecked(checked);
+    if (!checked) {
+        mlabel->hide();
+    }
+    int payMethod = setting.value(_("pay_setting/pay_method"), 0).value<int>();
+    mlabel->setAreaSelected(payMethod);
+    UserData *ud = UserData::instance();
+    if (payMethod < EPAYMETHODMAX) {
+        ud->paySetting.payMethod = (enum PayMethodE)payMethod;
+    }
+
+    vlayout->addWidget(activePayCB);
+    vlayout->addLayout(mlabel->layout());
+    vlayout->addStretch();
+    QWidget *widget = new QWidget;
+    widget->setLayout(vlayout);
+    tab->addTab(widget, tr("支付设置"));
+}
+
 void SettingDialog::setUp()
 {
     QTabWidget *tabWidget = new QTabWidget;
@@ -1351,6 +1419,7 @@ void SettingDialog::setUp()
     commonSetting(tabWidget);
     grabTicketSetting(tabWidget);
     candidateSetting(tabWidget);
+    paySetting(tabWidget);
     notifySetting(tabWidget);
     wxNotifySetting(tabWidget);
 
