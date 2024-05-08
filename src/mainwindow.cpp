@@ -1831,7 +1831,7 @@ void MainWindow::formatWithColorOutput(const QString &output, const QColor color
 void MainWindow::about()
 {
     QMessageBox::about(this, tr("关于云映"),
-                       tr("<p>云映客户端版本" THISVERSION "</p>"
+                       tr("<p>云映客户端版本 " THISVERSION "</p>"
                           "<p>本程序<a href=\"https://www.op9.top\">云映</a>仅限于个人使用，不可商用</p>"
                           "<p>本软件完全由个人靠业余时间开发，作者承诺软件不会上传或存储任何个人隐私信息，并且作者不会通过软件非法获利，请放心使用.</p>"
                           "<p>获取帮助&&问题反馈请发送邮件至gethelp@88.com</p>"
