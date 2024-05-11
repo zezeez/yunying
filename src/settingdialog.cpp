@@ -339,12 +339,14 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     timeEdit->setEnabled(checked);
     timeEdit->setDisplayFormat(_("hh:mm:ss"));
     QVBoxLayout *vlayout = new QVBoxLayout;
+    QVBoxLayout *vlayout1 = new QVBoxLayout;
     QHBoxLayout *hlayout = new QHBoxLayout;
+    QHBoxLayout *hlayout1 = new QHBoxLayout;
     hlayout->addWidget(grabTicketCB);
     hlayout->addWidget(cbox);
     hlayout->addWidget(timeEdit);
     hlayout->addStretch();
-    vlayout->addLayout(hlayout);
+    vlayout1->addLayout(hlayout);
 
     QCheckBox *cb = new QCheckBox(tr("自动冻结"));
     cb->setToolTip(tr("为防止频繁的无效提交，遇到订单提交失败时（缓存或其它原因）\n"
@@ -375,8 +377,29 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     label->setText(tr("秒"));
     hlayout->addWidget(label);
     hlayout->addStretch();
+    vlayout1->addLayout(hlayout);
+    hlayout1->addLayout(vlayout1);
+    vlayout1 = new QVBoxLayout;
+    hlayout = new QHBoxLayout;
+    cb = new QCheckBox(tr("学生票"));
+    cb->setStatusTip(tr("如果乘车人是学生，则购买学生票"));
+    connect(cb, &QCheckBox::toggled, this, [] (bool checked) {
+        UserData::instance()->grabSetting.isStudent = checked;
+        QSettings setting;
+        setting.setValue(_("grab_setting/is_student"), checked);
+    });
+    checked = setting.value(_("grab_setting/is_student"), false).value<bool>();
+    cb->setChecked(checked);
+    hlayout->addWidget(cb);
+    vlayout1->addLayout(hlayout);
+    vlayout1->addStretch();
+    hlayout1->addLayout(vlayout1);
+    hlayout1->addStretch();
+    vlayout->addLayout(hlayout1);
+    vlayout->addStretch();
+
     QGroupBox *gbox = new QGroupBox(tr("刷票模式"));
-    QVBoxLayout *vlayout1 = new QVBoxLayout;
+    vlayout1 = new QVBoxLayout;
     shortRb = new QRadioButton(tr("默认模式(3秒)"));
     connect(shortRb, &QRadioButton::toggled, this, [] (bool checked) {
         UserData *ud = UserData::instance();
@@ -453,7 +476,7 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     ud->grabSetting.grabIntervalSeconds = secs;
     sbox->setValue(secs);
     sbox->setEnabled(checked);
-    QHBoxLayout *hlayout1 = new QHBoxLayout;
+    hlayout1 = new QHBoxLayout;
     hlayout1->addWidget(customRb);
     hlayout1->addWidget(sbox);
     hlayout1->addStretch();
@@ -512,8 +535,6 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     hlayout1->addStretch();
     vlayout1->addLayout(hlayout1);
     gbox->setLayout(vlayout1);
-    vlayout->addLayout(hlayout);
-    vlayout->addStretch();
     vlayout->addWidget(gbox);
     widget->setLayout(vlayout);
     tab->addTab(widget, tr("抢票设置"));

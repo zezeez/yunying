@@ -576,6 +576,7 @@ std::pair<QString, QString> Analysis::generateSubmitTicketInfo(int trainNoIdx, Q
 {
     const QStringList &passengerList = w->passengerDialog->getSelectedPassenger();
     QString submitTicketStr, oldPassengerTicketStr;
+    QString passType;
     int j, idx;
     UserData *ud = UserData::instance();
 
@@ -609,7 +610,9 @@ std::pair<QString, QString> Analysis::generateSubmitTicketInfo(int trainNoIdx, Q
                 continue;
             }
             submitSeatType.append(QPair<QString, QChar>(ud->passenger[j].passName, code));
-            submitTicketStr.append(QStringLiteral("%1,0,%2,%3,%4,%5,%6,N,%7_").arg(code, PASSENGERADULT,
+            passType = ud->grabSetting.isStudent ? ud->passenger[j].passType :
+                           ud->passenger[j].passType == _("3") ? PASSENGERADULT : ud->passenger[j].passType;
+            submitTicketStr.append(QStringLiteral("%1,0,%2,%3,%4,%5,%6,N,%7_").arg(code, passType,
                                                                                    ud->passenger[j].passName.toUtf8().toPercentEncoding(),
                                                                                    ud->passenger[j].passIdTypeCode,
                                                                                    ud->passenger[j].passIdNo,
@@ -618,7 +621,7 @@ std::pair<QString, QString> Analysis::generateSubmitTicketInfo(int trainNoIdx, Q
             oldPassengerTicketStr.append(QStringLiteral("%1,%2,%3,%4_").arg(ud->passenger[j].passName.toUtf8().toPercentEncoding(),
                                                                             ud->passenger[j].passIdTypeCode,
                                                                             ud->passenger[j].passIdNo,
-                                                                            ud->passenger[j].passType));
+                                                                            passType));
             idx++;
         }
     }

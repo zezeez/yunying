@@ -317,6 +317,7 @@ struct GrabTicketSetting {
     bool autoFrozenTrain;
     bool fixedTimeGrab;
     bool acceptNewTrain;
+    bool isStudent;
     int frozenSeconds;
     QString grabTicketDate;
     int grabTicketHour;

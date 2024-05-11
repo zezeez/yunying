@@ -1540,9 +1540,16 @@ void MainWindow::checkUpdateReply(const QVariantMap &varMap)
     // status = 2 错误
     int status = varMap[_("status")].toInt();
     QString msg;
-    QString url;
+    //QString url;
     QVariantMap verInfo;
-    QMessageBox::StandardButton button;
+    //QMessageBox::StandardButton button;
+    QLabel *msgLabel;
+    QScrollArea *scrollArea;
+    QDialog dialog;
+    QVBoxLayout vlayout;
+    QHBoxLayout hlayout;
+    QPushButton yes(tr("是")), no(tr("否"));
+
     switch (status) {
     case 0:
         break;
@@ -1552,16 +1559,39 @@ void MainWindow::checkUpdateReply(const QVariantMap &varMap)
         msg += _("新版本：\n") + verInfo[_("version")].toString() + _("\n");
         msg += _("当前版本：\n") + _(THISVERSION) + _("\n\n");
         msg += _("更新日志：\n") + verInfo[_("changeLog")].toString() + _("\n");
-        button = QMessageBox::information(this, _("版本更新"), msg, QMessageBox::Yes | QMessageBox::No);
+        msgLabel = new QLabel;
+        msgLabel->setText(msg);
+        scrollArea = new QScrollArea;
+        scrollArea->setWidget(msgLabel);
+        vlayout.addWidget(scrollArea);
+        connect(&yes, &QPushButton::clicked, &dialog, [verInfo, &dialog]() {
+            QString url;
+            url = verInfo[_("downloadUrl")].toString();
+            QDesktopServices::openUrl(QUrl(url));
+            dialog.close();
+        });
+        connect(&no, &QPushButton::clicked, &dialog, [&dialog]() {
+            dialog.close();
+        });
+        hlayout.addStretch();
+        hlayout.addWidget(&yes);
+        hlayout.addWidget(&no);
+        hlayout.addStretch();
+        vlayout.addLayout(&hlayout);
+        dialog.setLayout(&vlayout);
+        dialog.resize(300, 300);
+        dialog.exec();
+        delete scrollArea;
+        /*button = QMessageBox::information(this, _("版本更新"), msg, QMessageBox::Yes | QMessageBox::No);
         if (button == QMessageBox::Yes) {
             url = verInfo[_("downloadUrl")].toString();
             QDesktopServices::openUrl(QUrl(url));
-        }
+        }*/
         break;
     case 2:
         msg = varMap[_("msg")].toString();
         if (!msg.isEmpty()) {
-            formatOutput(_("检查更新失败，描述：") + msg);
+             QMessageBox::warning(this, _("更新失败"), msg);
         }
         break;
     default:

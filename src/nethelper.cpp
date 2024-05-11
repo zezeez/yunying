@@ -352,8 +352,8 @@ int NetHelper::checkReplyOk(QNetworkReply *reply)
     enum QNetworkReply::NetworkError errorNo = reply->error();
 
     if (errorNo != QNetworkReply::NoError) {
-        w->formatOutput(QStringLiteral("请求响应异常，错误号：%1，错误详情：%2")
-                            .arg(errorNo).arg(reply->errorString()));
+        w->formatOutput(QStringLiteral("%1: 请求响应异常，错误号：%2，错误详情：%3")
+                            .arg(reply->request().url().url()).arg(errorNo).arg(reply->errorString()));
         if (errorNo == QNetworkReply::HostNotFoundError ||
             errorNo == QNetworkReply::TimeoutError ||
             errorNo == QNetworkReply::UnknownNetworkError) {
@@ -2256,18 +2256,20 @@ QString NetHelper::generateCandidateTicketInfo()
     int i, k;
     UserData *ud = UserData::instance();
     QString secretList;
-    QString tmp;
+    QString tmp, passType;
 
     ud->candidateInfo.passengers.clear();
     for (i = 0; i < selectedPassengerList.size(); i++) {
         // 票类型#姓名#证件类型#证件号#EncStr#0;
-        tmp.append(_("1#"));
         for (k = 0; k < ud->passenger.size(); k++) {
             if (ud->passenger[k].passName == selectedPassengerList[i]) {
                 break;
             }
         }
         if (k < ud->passenger.size()) {
+            passType = ud->grabSetting.isStudent ? ud->passenger[k].passType :
+                           ud->passenger[k].passType == _("3") ? PASSENGERADULT : ud->passenger[k].passType;
+            tmp.append(passType + '#');
             tmp.append(ud->passenger[k].passName.toUtf8().toPercentEncoding());
             tmp.append('#');
             tmp.append(ud->passenger[k].passIdTypeCode);
@@ -2276,13 +2278,12 @@ QString NetHelper::generateCandidateTicketInfo()
             tmp.append('#');
             tmp.append(ud->passenger[k].allEncStr);
             tmp.append(_("#0;"));
-            ud->candidateInfo.passengers.append(ud->passenger[i].passName);
         } else {
-            tmp.clear();
             continue;
         }
         secretList.append(tmp.toUtf8().toPercentEncoding());
         tmp.clear();
+        ud->candidateInfo.passengers.append(ud->passenger[i].passName);
     }
     return secretList;
 }
@@ -3206,9 +3207,10 @@ void NetHelper::checkUpdateReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
+        w->formatOutput(_("检查更新失败"));
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
     w->checkUpdateReply(varMap);
 }
 
@@ -3224,6 +3226,7 @@ void NetHelper::getCdnReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
+        w->formatOutput(_("获取Cdn失败"));
         return;
     }
     int status = varMap[_("status")].toInt();
