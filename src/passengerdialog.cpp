@@ -182,7 +182,7 @@ const QList<QString> &PassengerDialog::getSelectedPassenger() const
     passengerList.clear();
     passengerList.resize(selected->count());
     for (int i = 0; i < selected->count(); i++) {
-        passengerList[i] = selected->item(i)->text();
+        passengerList[i] = selected->item(i)->text().split('(')[0];
     }
     return passengerList;
 }

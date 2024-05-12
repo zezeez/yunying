@@ -382,7 +382,7 @@ void SettingDialog::grabTicketSetting(QTabWidget *tab)
     vlayout1 = new QVBoxLayout;
     hlayout = new QHBoxLayout;
     cb = new QCheckBox(tr("学生票"));
-    cb->setStatusTip(tr("如果乘车人是学生，则购买学生票"));
+    cb->setToolTip(tr("如果乘车人是学生，则购买学生票"));
     connect(cb, &QCheckBox::toggled, this, [] (bool checked) {
         UserData::instance()->grabSetting.isStudent = checked;
         QSettings setting;

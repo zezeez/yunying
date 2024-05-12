@@ -1114,7 +1114,7 @@ void NetHelper::getPassengerInfoReply(QNetworkReply *reply)
         struct PassengerInfo pinfo;
         pinfo = ud->setPassengerInfo(map);
         ud->passenger.push_back(pinfo);
-        w->passengerDialog->addUnSelectedPassenger(pinfo.passName);
+        w->passengerDialog->addUnSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
     }
     list = data[_("dj_passengers")].toList();
     if (!list.isEmpty()) {
@@ -1123,7 +1123,7 @@ void NetHelper::getPassengerInfoReply(QNetworkReply *reply)
             struct PassengerInfo pinfo;
             pinfo = ud->setPassengerInfo(map);
             ud->djPassenger.push_back(pinfo);
-            w->passengerDialog->addUnSelectedPassenger(pinfo.passName);
+            w->passengerDialog->addUnSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
         }
     }
     QString message = data[QStringLiteral("notify_for_gat")].toString();
@@ -2660,7 +2660,7 @@ void NetHelper::lineUptoPayConfirm(const QString &reserve_no)
     ud->candidateRunStatus = ESUBMITCANDIDATESUCCESS;
     QString msg;
     if (ud->paySetting.activePay) {
-        msg = _("候补订单提交成功，候补订单号：%1");
+        msg = _("候补订单提交成功，候补订单号：%1").arg(reserve_no);
     } else {
         msg = _("候补订单提交成功，候补订单号：%1，为避免订单超时取消，请您尽快完成支付").arg(reserve_no);
     }
@@ -3033,7 +3033,7 @@ void NetHelper::payWebBusiness()
     param.put(_("merCustomIp"), publicIp.toUtf8().toPercentEncoding());
     param.put(_("orderTimeoutDate"), e.text());
     param.put(_("paymentType"), _("0"));
-    param.put(_("bankId"), bankId[payMethod]);  // 微信bankId
+    param.put(_("bankId"), bankId[payMethod]);
     param.put(_("businessType"), _("1"));
     qDebug() << __FUNCTION__;
 

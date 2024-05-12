@@ -1581,6 +1581,7 @@ void MainWindow::checkUpdateReply(const QVariantMap &varMap)
         dialog.setLayout(&vlayout);
         dialog.resize(300, 300);
         dialog.exec();
+        // msgLabel would be destroyed when destroying scrollArea
         delete scrollArea;
         /*button = QMessageBox::information(this, _("版本更新"), msg, QMessageBox::Yes | QMessageBox::No);
         if (button == QMessageBox::Yes) {
