@@ -13,7 +13,7 @@ class TrainNoDialog : public QDialog
 public:
     TrainNoDialog(QWidget *parent = nullptr);
     ~TrainNoDialog();
-    void setUp(QStandardItemModel *model);
+    void setUp();
     void updateSelectedTips();
     bool hasTrain(const QString &trainInfo);
     void addTrain(const QString &trainInfo, const QString &display);

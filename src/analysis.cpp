@@ -163,7 +163,6 @@ int Analysis::sufficientTicketPrioSelectTrain(const QVariantMap &stationMap)
     trainTicketNumMax = 0;
     ticketMaxidx = -1;
 
-    //qDebug() << selectedTrainSet.values();
 again:
     for (int i = 0; i < trainInfoVec.size(); i++) {
         QStringList &trainList = trainInfoVec[i];

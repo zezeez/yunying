@@ -122,7 +122,7 @@ MainWindow::MainWindow(QWidget *parent) :
     passengerDialog = new PassengerDialog(this);
     passengerDialog->setUp();
     trainNoDialog = new TrainNoDialog(this);
-    trainNoDialog->setUp(static_cast<QStandardItemModel *>(tableView->model()));
+    trainNoDialog->setUp();
     seatTypeDialog = new SeatTypeDialog(this);
     seatTypeDialog->setUp();
 
@@ -644,6 +644,18 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         } else {
             if (settingDialog->trainTypeShowVec[trainCodePrefix] == false) {
                 if (settingDialog->trainTypeShowVec['O'] == false) {
+                    useTrainListSize--;
+                    continue;
+                }
+            }
+        }
+        if (ud->generalSetting.startTimeRange1 != 0 ||
+            ud->generalSetting.startTimeRange2 != 24) {
+            QStringList startTimeStr = trainInfo[ESTARTTIME].split(':');
+            if (!startTimeStr.isEmpty()) {
+                int startTime = startTimeStr[0].toInt();
+                if (startTime < ud->generalSetting.startTimeRange1 ||
+                    startTime >= ud->generalSetting.startTimeRange2) {
                     useTrainListSize--;
                     continue;
                 }
@@ -1608,7 +1620,9 @@ void MainWindow::rightMenuSelectTrain()
     foreach (QModelIndex index, indexList) {
         const QStandardItemModel *itemModel = dynamic_cast<const QStandardItemModel *>(index.model());
         const QStandardItem *item = dynamic_cast<const QStandardItem *>(itemModel->item(index.row(), 0));
-        trainNoDialog->addSelectedTrain(item->text());
+        const QStandardItem *item1 = dynamic_cast<const QStandardItem *>(itemModel->item(index.row(), 1));
+        const QStandardItem *item2 = dynamic_cast<const QStandardItem *>(itemModel->item(index.row(), 2));
+        trainNoDialog->addSelectedTrain(_("%1 (%2 %3").arg(item->text(), item1->text(), item2->text()));
     }
 }
 

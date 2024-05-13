@@ -309,7 +309,6 @@ struct NotifySetting {
 struct GrabTicketSetting {
     QVector<struct PassengerInfo> selectedPassenger;  //  选中的旅客信息
     QVector<struct PassengerInfo> selectedDjPassenger;  // 选中的受让人旅客信息
-    QVector<QString> trainNo;
     QVector<QChar> seatTypeCode;
     struct SeatTypePrioSetting seatTypePrio;
     struct TrainPrioSetting trainPrio;
@@ -340,6 +339,8 @@ struct GeneralSetting {
     QString musicPath;
     QString customMusicPath;
     QString timeServer;
+    int startTimeRange1;
+    int startTimeRange2;
 };
 
 enum PayMethodE {

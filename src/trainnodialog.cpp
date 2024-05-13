@@ -26,7 +26,7 @@ TrainNoDialog::~TrainNoDialog()
 {
 }
 
-void TrainNoDialog::setUp(QStandardItemModel *model)
+void TrainNoDialog::setUp()
 {
     unSelected = new QListWidget;
     unSelected->setMinimumWidth(300);
@@ -36,27 +36,6 @@ void TrainNoDialog::setUp(QStandardItemModel *model)
     font.setPointSize(11);
     QLabel *label = new QLabel(tr("未选中车次："));
     label->setFont(font);
-
-    UserData *ud = UserData::instance();
-    struct GrabTicketSetting &grabSetting = ud->getGrabTicketSetting();
-    QVector<QString>::const_iterator it;
-
-    for (it = grabSetting.trainNo.cbegin();
-         it != grabSetting.trainNo.cend(); ++it) {
-        QListWidgetItem *item = new QListWidgetItem(selected);
-        item->setData(Qt::DisplayRole, QObject::tr("%1").arg(*it));
-    }
-
-    for (int i = 0; i < model->rowCount(); ++i) {
-        //for (int i = 0; i < 10; i++) {
-        QStandardItem *item = model->item(i);
-        if (!grabSetting.trainNo.contains(item->text())) {
-            //if (!grabSetting.trainNo.contains(tr("%1").arg(i))) {
-            QListWidgetItem *witem = new QListWidgetItem(unSelected);
-            witem->setData(Qt::DisplayRole, item->text());
-            //witem->setData(Qt::DisplayRole, tr("%1").arg(i));
-        }
-    }
 
     unSelected->setCurrentRow(0);
 
@@ -346,7 +325,7 @@ void TrainNoDialog::addTrainFinish()
 void TrainNoDialog::addSelectedTrain(const QString &trainInfo)
 {
     if (!trainInfo.isEmpty()) {
-        QList<QListWidgetItem *> itemList = selected->findItems(trainInfo, Qt::MatchStartsWith);
+        QList<QListWidgetItem *> itemList = selected->findItems(trainInfo, Qt::MatchExactly);
         if (itemList.isEmpty()) {
             itemList = unSelected->findItems(trainInfo, Qt::MatchStartsWith);
             if (itemList.isEmpty()) {
@@ -456,16 +435,10 @@ const QSet<QString> &TrainNoDialog::getAllTrainSet() const
 
 void TrainNoDialog::setSelectedTrainNo()
 {
-    UserData *ud = UserData::instance();
-    struct GrabTicketSetting &grabSetting = ud->getGrabTicketSetting();
-
     QListWidgetItem *item = unSelected->currentItem();
     if (item) {
         QList<QListWidgetItem *> list = selected->findItems(item->text(), Qt::MatchExactly);
         if (list.isEmpty()) {
-            if (!grabSetting.trainNo.contains(item->text())) {
-                grabSetting.trainNo.push_back(item->text());
-            }
             //QListWidgetItem *item2 = new QListWidgetItem(selected);
             //item2->setData(Qt::DisplayRole, QObject::tr("%1").arg(item->text()));
             //selected->setCurrentItem(unSelected->takeItem(unSelected->currentRow()));
@@ -482,15 +455,9 @@ void TrainNoDialog::setSelectedTrainNo()
 
 void TrainNoDialog::setUnselectedTrainNo()
 {
-    UserData *ud = UserData::instance();
-    struct GrabTicketSetting &grabSetting = ud->getGrabTicketSetting();
-
     QListWidgetItem *item = selected->currentItem();
 
     if (item) {
-        if (grabSetting.trainNo.contains(item->text())) {
-            grabSetting.trainNo.removeOne(item->text());
-        }
         //QListWidgetItem *item2 = new QListWidgetItem(unSelected);
         //item2->setData(Qt::DisplayRole, QObject::tr("%1").arg(item->text()));
         //unSelected->setCurrentItem(selected->takeItem(selected->currentRow()));

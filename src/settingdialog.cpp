@@ -42,6 +42,7 @@ void SettingDialog::commonSetting(QTabWidget *tab)
 {
     QWidget *widget = new QWidget;
     QVBoxLayout *vLayout = new QVBoxLayout;
+    QVBoxLayout *vlayout1 = new QVBoxLayout;
     QHBoxLayout *hLayout = new QHBoxLayout;
     QCheckBox *cbAll = new QCheckBox(tr("全选"));
     QCheckBox *cbFuxingTrain = new QCheckBox(tr("复兴"));
@@ -112,8 +113,45 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     //hLayout->setMargin(5);
     hLayout->addStretch(1);
 
+    vlayout1->addLayout(hLayout);
+    QLabel *label = new QLabel(tr("出发时间: "));
+    QSpinBox *sbTime = new QSpinBox;
+    sbTime->setMinimum(0);
+    sbTime->setMaximum(23);
+    QLabel *label1 = new QLabel(tr("点 - "));
+    QSpinBox *sbTime1 = new QSpinBox;
+    sbTime1->setMinimum(1);
+    sbTime1->setMaximum(24);
+    sbTime1->setValue(24);
+    UserData *ud = UserData::instance();
+    ud->generalSetting.startTimeRange2 = 24;
+    connect(sbTime, &QSpinBox::valueChanged, this, [sbTime1](int value) {
+        UserData *ud = UserData::instance();
+        ud->generalSetting.startTimeRange1 = value;
+        if (value >= sbTime1->value()) {
+            sbTime1->setValue(value + 1);
+        }
+    });
+    connect(sbTime1, &QSpinBox::valueChanged, this, [sbTime](int value) {
+        UserData *ud = UserData::instance();
+        ud->generalSetting.startTimeRange2 = value;
+        if (value <= sbTime->value()) {
+            sbTime->setValue(value - 1);
+        }
+    });
+    QLabel *label2 = new QLabel(tr("点"));
+    hLayout = new QHBoxLayout;
+    hLayout->addWidget(label);
+    hLayout->addWidget(sbTime);
+    hLayout->addWidget(label1);
+    hLayout->addWidget(sbTime1);
+    hLayout->addWidget(label2);
+    hLayout->addStretch();
+
+    vlayout1->addLayout(hLayout);
+
     QGroupBox *group = new QGroupBox;
-    group->setLayout(hLayout);
+    group->setLayout(vlayout1);
     group->setTitle(tr("筛选"));
     vLayout->addWidget(group);
 
@@ -145,7 +183,6 @@ void SettingDialog::commonSetting(QTabWidget *tab)
     timeServerCb->addItems(timeServerList);
     QString text = setting.value(_("setting/timeServer"), _("ntp1.nim.ac.cn")).value<QString>();
     timeServerCb->setCurrentText(text);
-    UserData *ud = UserData::instance();
     ud->generalSetting.timeServer = text;
     connect(timeServerCb, &QComboBox::currentTextChanged, this, [](QString text) {
         UserData *ud = UserData::instance();
