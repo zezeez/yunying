@@ -1092,6 +1092,7 @@ void MainWindow::processStopStationReply(QVariantMap &data)
             for (auto &column : columnsData) {
                 s = data3[column].toString();
                 QTableWidgetItem *item = new QTableWidgetItem(s);
+                item->setToolTip(s);
                 tw->setItem(i, j, item);
                 j++;
             }
@@ -1634,7 +1635,9 @@ void MainWindow::rightMenuUnselectTrain()
     foreach (QModelIndex index, indexList) {
         const QStandardItemModel *itemModel = dynamic_cast<const QStandardItemModel *>(index.model());
         const QStandardItem *item = dynamic_cast<const QStandardItem *>(itemModel->item(index.row(), 0));
-        trainNoDialog->removeSelectedTrain(item->text());
+        const QStandardItem *item1 = dynamic_cast<const QStandardItem *>(itemModel->item(index.row(), 1));
+        const QStandardItem *item2 = dynamic_cast<const QStandardItem *>(itemModel->item(index.row(), 2));
+        trainNoDialog->removeSelectedTrain(_("%1 (%2 %3").arg(item->text(), item1->text(), item2->text()));
     }
 }
 

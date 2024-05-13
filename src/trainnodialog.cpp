@@ -325,16 +325,17 @@ void TrainNoDialog::addTrainFinish()
 void TrainNoDialog::addSelectedTrain(const QString &trainInfo)
 {
     if (!trainInfo.isEmpty()) {
-        QList<QListWidgetItem *> itemList = selected->findItems(trainInfo, Qt::MatchExactly);
+        QList<QListWidgetItem *> itemList = selected->findItems(trainInfo + ' ', Qt::MatchStartsWith);
         if (itemList.isEmpty()) {
-            itemList = unSelected->findItems(trainInfo, Qt::MatchStartsWith);
+            itemList = unSelected->findItems(trainInfo + ' ', Qt::MatchStartsWith);
             if (itemList.isEmpty()) {
                 return;
             }
             QListWidgetItem *item = unSelected->takeItem(unSelected->row(itemList[0]));
             selected->addItem(item);
-            QStringList textList = item->text().split(' ');
-            selectedTrainSet.insert(_("%1 %2 %3").arg(textList[0], textList[1], textList[2]));
+            //QStringList textList = item->text().split(' ');
+            //selectedTrainSet.insert(_("%1 %2 %3").arg(textList[0], textList[1], textList[2]));
+            selectedTrainSet.insert(trainInfo);
         }
         updateSelectedTips();
     }
@@ -343,16 +344,17 @@ void TrainNoDialog::addSelectedTrain(const QString &trainInfo)
 void TrainNoDialog::removeSelectedTrain(const QString &trainInfo)
 {
     if (!trainInfo.isEmpty()) {
-        QList<QListWidgetItem *> itemList = unSelected->findItems(trainInfo, Qt::MatchStartsWith);
+        QList<QListWidgetItem *> itemList = unSelected->findItems(trainInfo + ' ', Qt::MatchStartsWith);
         if (itemList.isEmpty()) {
-            itemList = selected->findItems(trainInfo, Qt::MatchStartsWith);
+            itemList = selected->findItems(trainInfo + ' ', Qt::MatchStartsWith);
             if (itemList.isEmpty()) {
                 return;
             }
             QListWidgetItem *item = selected->takeItem(selected->row(itemList[0]));
             unSelected->addItem(item);
-            QStringList textList = item->text().split(' ');
-            selectedTrainSet.remove(_("%1 %2 %3").arg(textList[0], textList[1], textList[2]));
+            //QStringList textList = item->text().split(' ');
+            //selectedTrainSet.remove(_("%1 %2 %3").arg(textList[0], textList[1], textList[2]));
+            selectedTrainSet.insert(trainInfo);
         }
         updateSelectedTips();
     }
