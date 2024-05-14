@@ -532,20 +532,19 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 if (ud->runStatus == EGRABTICKET) {
                     availableTrain.push_back(trainInfo);
                     // 增开列车
-                    QString trainDesc = trainInfo[ESTATIONTRAINCODE] + trainInfo[EFROMSTATIONTELECODE] + trainInfo[ETOSTATIONTELECODE];
-                    if (!trainNoDialog->getAllTrainSet().contains(trainDesc)) {
-                        if (canAddNewTrain(trainInfo[ESTARTTIME])) {
-                            // 选了接受增开列车，自动加到已选列表
-                            trainNoDialog->addTrain(trainDesc,
-                                                    _("%1 (%2 %3 %4-%5 %6)").arg(trainInfo[ESTATIONTRAINCODE],
+                    QString trainDesc = _("%1 (%2 %3 %4-%5 %6)").arg(trainInfo[ESTATIONTRAINCODE],
                                                                                  fromStationName,
                                                                                  toStationName,
                                                                                  trainInfo[ESTARTTIME],
                                                                                  trainInfo[EARRIVETIME],
-                                                                                 trainInfo[ESPENDTIME]));
+                                                                                 trainInfo[ESPENDTIME]);
+                    if (!trainNoDialog->hasTrain(trainDesc)) {
+                        if (canAddNewTrain(trainInfo[ESTARTTIME])) {
+                            // 选了接受增开列车，自动加到已选列表
+                            trainNoDialog->addTrain(trainDesc);
                             trainNoDialog->addSelectedTrain(_("%1 (%2 %3").arg(trainInfo[ESTATIONTRAINCODE],
-                                                                               stationMap.value(trainInfo[EFROMSTATIONTELECODE]).toString(),
-                                                                               stationMap.value(trainInfo[ETOSTATIONTELECODE]).toString()));
+                                                                               fromStationName,
+                                                                               toStationName));
                         }
                     }
                 }
@@ -585,6 +584,12 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                         ud->submitTicketInfo.secretStr = availableTrain[trainNoIdx][ESECRETSTR];
                         ud->submitTicketInfo.ypDetailInfo = availableTrain[trainNoIdx][EYPINFO];
                         ud->submitTicketInfo.date = tourDate;
+                        ud->submitTicketInfo.startSTationName = stationMap.value(availableTrain[trainNoIdx]
+                                                                                               [ESTARTSTATIONTELECODE])
+                                                                    .toString();
+                        ud->submitTicketInfo.endStationName = stationMap.value(availableTrain[trainNoIdx]
+                                                                                             [EENDSTATIONTELECODE])
+                                                                  .toString();
                         ud->submitTicketInfo.fromStationCode = availableTrain[trainNoIdx][EFROMSTATIONTELECODE];
                         ud->submitTicketInfo.fromStationName = stationMap.value(availableTrain[trainNoIdx]
                                                                                               [EFROMSTATIONTELECODE])
@@ -593,6 +598,9 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                         ud->submitTicketInfo.toStationName = stationMap.value(availableTrain[trainNoIdx]
                                                                                             [ETOSTATIONTELECODE])
                                                                  .toString();
+                        ud->submitTicketInfo.fromTime = availableTrain[trainNoIdx][ESTARTTIME];
+                        ud->submitTicketInfo.toTime = availableTrain[trainNoIdx][EARRIVETIME];
+                        ud->submitTicketInfo.travelTime = availableTrain[trainNoIdx][ESPENDTIME];
                         ud->submitTicketInfo.submitSeatType = submitSeatType;
                         ud->submitTicketInfo.passengerTicketInfo = ticketStr.first;
                         ud->submitTicketInfo.oldPassengerTicketInfo = ticketStr.second;
@@ -892,18 +900,16 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 }
             }
 
-
             tableSeatTypeItemsMap.clear();
+
+            trainNoDialog->addTrain(_("%1 (%2 %3 %4-%5 %6)").arg(trainInfo[ESTATIONTRAINCODE],
+                                                                 fromStationName,
+                                                                 toStationName,
+                                                                 trainInfo[ESTARTTIME],
+                                                                 trainInfo[EARRIVETIME],
+                                                                 trainInfo[ESPENDTIME]));
         }
-        trainNoDialog->addTrain(_("%1%2%3").arg(trainInfo[ESTATIONTRAINCODE],
-                                                trainInfo[EFROMSTATIONTELECODE],
-                                                trainInfo[ETOSTATIONTELECODE]),
-                                _("%1 (%2 %3 %4-%5 %6)").arg(trainInfo[ESTATIONTRAINCODE],
-                                                                fromStationName,
-                                                                toStationName,
-                                                                trainInfo[ESTARTTIME],
-                                                                trainInfo[EARRIVETIME],
-                                                                trainInfo[ESPENDTIME]));
+
         tableSeatTypeItems.clear();
         itemIdx++;
     }

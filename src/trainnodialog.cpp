@@ -301,16 +301,14 @@ bool TrainNoDialog::hasTrain(const QString &trainInfo)
     return trainSet.contains(trainInfo);
 }
 
-void TrainNoDialog::addTrain(const QString &trainInfo, const QString &display)
+void TrainNoDialog::addTrain(const QString &trainInfo)
 {
-    if (!trainInfo.isEmpty()) {
-        if (!hasTrain(trainInfo)) {
-            QListWidgetItem *item = new QListWidgetItem(unSelected);
-            item->setData(Qt::DisplayRole, display);
-            unSelected->setCurrentItem(item);
-            addSelectedPb->setEnabled(true);
-            trainSet.insert(trainInfo);
-        }
+    if (!hasTrain(trainInfo)) {
+        QListWidgetItem *item = new QListWidgetItem(unSelected);
+        item->setData(Qt::DisplayRole, trainInfo);
+        unSelected->setCurrentItem(item);
+        addSelectedPb->setEnabled(true);
+        trainSet.insert(trainInfo);
     }
 }
 
@@ -396,10 +394,10 @@ void TrainNoDialog::clearUnSelectedTrain()
         unSelected->setCurrentRow(unSelected->count() - 1);
         while (unSelected->count()) {
             QListWidgetItem *item = unSelected->takeItem(unSelected->currentRow());
+            trainSet.remove(item->text());
             delete item;
         }
         updateSelectedTips();
-        trainSet.clear();
     }
 }
 

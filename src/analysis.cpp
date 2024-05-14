@@ -158,8 +158,11 @@ int Analysis::sufficientTicketPrioSelectTrain(const QVariantMap &stationMap)
     selectSeatTypeSize = seatTypeTranslate(selectedSeatTypeStrList, selectSeatType);
     const QList<QString> &passengerList = w->passengerDialog->getSelectedPassenger();
     const QSet<QString> &selectedTrainSet = w->trainNoDialog->getSelectedTrainSet();
-    bool hasSelectedTrain = false;
+    bool filterByCondition = false;
     bool subCondition = true;
+    QString trainDesc;
+    NetHelper *nh = NetHelper::instance();
+
     trainTicketNumMax = 0;
     ticketMaxidx = -1;
 
@@ -170,31 +173,37 @@ again:
         if (trainList.empty() || ticketInfo.empty())
             continue;
 
-        QString trainDesc = _("%1 (%2 %3").arg(trainList[ESTATIONTRAINCODE],
+        trainDesc = _("%1 (%2 %3").arg(trainList[ESTATIONTRAINCODE],
                                                stationMap.value(trainList[EFROMSTATIONTELECODE]).toString(),
                                                stationMap.value(trainList[ETOSTATIONTELECODE]).toString());
         // Currentlly frozened
-        if (NetHelper::instance()->queryFrozenTrain(trainDesc)) {
+        if (nh->queryFrozenTrain(trainDesc)) {
             continue;
         }
         if (!selectedTrainSet.contains(trainDesc))
             continue;
-        hasSelectedTrain = true;
+
         if (subCondition) {
             if (ud->grabSetting.trainPrio.preferGPrio &&
                 !trainList[ESTATIONTRAINCODE].isEmpty() &&
-                trainList[ESTATIONTRAINCODE][0] != 'G')
+                trainList[ESTATIONTRAINCODE][0] != 'G') {
+                filterByCondition = true;
                 continue;
+            }
             if (ud->grabSetting.trainPrio.preferDPrio &&
                 !trainList[ESTATIONTRAINCODE].isEmpty() &&
-                trainList[ESTATIONTRAINCODE][0] != 'D')
+                trainList[ESTATIONTRAINCODE][0] != 'D') {
+                filterByCondition = true;
                 continue;
+            }
             if (ud->grabSetting.trainPrio.preferTimeRangePrio) {
                 QStringList timeList = trainList[ESTARTTIME].split(":");
                 int trainHour = timeList.size() > 0 ? timeList[0].toInt() : 0;
                 int trainMinute = timeList.size() > 1 ? timeList[1].toInt() : 0;
-                if (!ud->isTimeInRange(trainHour, trainMinute))
+                if (!ud->isTimeInRange(trainHour, trainMinute)) {
+                    filterByCondition = true;
                     continue;
+                }
             }
         }
         trainTicketNum = 0;
@@ -208,7 +217,7 @@ again:
             ticketMaxidx = i;
         }
     }
-    if (hasSelectedTrain && ticketMaxidx == -1 && subCondition) {
+    if (filterByCondition && ticketMaxidx == -1 && subCondition) {
         subCondition = false;
         goto again;
     }
@@ -226,33 +235,35 @@ int Analysis::strictTrainPrioSelectTrain(const QVariantMap &stationMap)
     int selectSeatTypeSize = 0;
     int partialTicketMax = 0;
     int partialTicketMaxIndex = -1;
+    int j;
     QList<QString> selectedSeatTypeStrList = w->seatTypeDialog->getSelectedSeatType();
     Q_ASSERT(selectedSeatTypeStrList.size() <= TICKETSIZE);
     selectSeatTypeSize = seatTypeTranslate(selectedSeatTypeStrList, selectSeatType);
     const QList<QString> &selectedTrain = w->trainNoDialog->getSelectedTrainList();
     const QList<QString> &passengerList = w->passengerDialog->getSelectedPassenger();
     QString s;
-    int j;
+    QHash<QString, int> trainInfoHash;
+    NetHelper *nh = NetHelper::instance();
     bool partial = UserData::instance()->grabSetting.ticketSetting.partialSubmit;
+
+    for (j = 0; j < trainInfoVec.size(); j++) {
+        const QStringList &trainInfo = trainInfoVec[j];
+        s = _("%1 (%2 %3").arg(trainInfo[ESTATIONTRAINCODE],
+                               stationMap.value(trainInfo[EFROMSTATIONTELECODE]).toString(),
+                               stationMap.value(trainInfo[ETOSTATIONTELECODE]).toString());
+        trainInfoHash.insert(s, j);
+    }
 
     for (int i = 0; i < selectedTrain.size(); i++) {
         const QString &trainDesc = selectedTrain[i];
         // Currentlly frozened
-        if (NetHelper::instance()->queryFrozenTrain(trainDesc)) {
+        if (nh->queryFrozenTrain(trainDesc)) {
             continue;
         }
-        for (j = 0; j < trainInfoVec.size(); j++) {
-            const QStringList &sl = trainInfoVec[j];
-            if (trainDesc.startsWith(trainInfoVec[j][ESTATIONTRAINCODE])) {
-                s = _("%1 (%2 %3").arg(sl[ESTATIONTRAINCODE],
-                                               stationMap.value(sl[EFROMSTATIONTELECODE]).toString(),
-                                               stationMap.value(sl[ETOSTATIONTELECODE]).toString());
-                if (trainDesc == s)
-                    break;
-            }
-        }
-        if (j == trainInfoVec.size())
+        j = trainInfoHash.value(trainDesc, -1);
+        if (j == -1) {
             continue;
+        }
 
         trainTicketNum = 0;
         for (int k = 0; k < selectSeatTypeSize; k++) {
@@ -289,9 +300,10 @@ int Analysis::strictTravelTimePrioSelectTrain(const QVariantMap &stationMap)
     const QList<QString> &passengerList = w->passengerDialog->getSelectedPassenger();
     int travelTimeHour;
     int travelTimeMinute;
-    int travelTimeShortestHour = 999999;
-    int travelTimeShortestMinute = 999999;
+    int travelTimeShortestHour = INT_MAX;
+    int travelTimeShortestMinute = INT_MAX;
     QStringList travelTimeStrList;
+    NetHelper *nh = NetHelper::instance();
     bool partial = UserData::instance()->grabSetting.ticketSetting.partialSubmit;
 
     for (int i = 0; i < trainInfoVec.size(); i++) {
@@ -302,7 +314,7 @@ int Analysis::strictTravelTimePrioSelectTrain(const QVariantMap &stationMap)
                                                stationMap.value(trainList[EFROMSTATIONTELECODE]).toString(),
                                                stationMap.value(trainList[ETOSTATIONTELECODE]).toString());
         // Currentlly frozened
-        if (NetHelper::instance()->queryFrozenTrain(trainDesc)) {
+        if (nh->queryFrozenTrain(trainDesc)) {
             continue;
         }
         if (!selectedTrainSet.contains(trainDesc))
@@ -315,8 +327,8 @@ int Analysis::strictTravelTimePrioSelectTrain(const QVariantMap &stationMap)
         }
         if (trainTicketNum >= passengerList.size()) {
             travelTimeStrList = trainList[ESPENDTIME].split(':', Qt::SkipEmptyParts);
-            travelTimeHour = travelTimeStrList.length() > 0 ? travelTimeStrList[0].toInt() : 999999;
-            travelTimeMinute = travelTimeStrList.length() > 1 ? travelTimeStrList[1].toInt() : 999999;
+            travelTimeHour = travelTimeStrList.length() > 0 ? travelTimeStrList[0].toInt() : INT_MAX;
+            travelTimeMinute = travelTimeStrList.length() > 1 ? travelTimeStrList[1].toInt() : INT_MAX;
             if (travelTimeHour < travelTimeShortestHour ||
                 (travelTimeHour == travelTimeShortestHour &&
                 travelTimeMinute < travelTimeShortestMinute)) {
@@ -347,6 +359,7 @@ int Analysis::strictStartTimePrioSelectTrain(const QVariantMap &stationMap)
     selectSeatTypeSize = seatTypeTranslate(selectedSeatTypeStrList, selectSeatType);
     const QSet<QString> &selectedTrainSet = w->trainNoDialog->getSelectedTrainSet();
     const QList<QString> &passengerList = w->passengerDialog->getSelectedPassenger();
+    NetHelper *nh = NetHelper::instance();
     bool partial = UserData::instance()->grabSetting.ticketSetting.partialSubmit;
 
     for (int i = 0; i < trainInfoVec.size(); i++) {
@@ -357,7 +370,7 @@ int Analysis::strictStartTimePrioSelectTrain(const QVariantMap &stationMap)
                                                stationMap.value(trainList[EFROMSTATIONTELECODE]).toString(),
                                                stationMap.value(trainList[ETOSTATIONTELECODE]).toString());
         // Currentlly frozened
-        if (NetHelper::instance()->queryFrozenTrain(trainDesc)) {
+        if (nh->queryFrozenTrain(trainDesc)) {
             continue;
         }
         if (!selectedTrainSet.contains(trainDesc))
@@ -675,11 +688,6 @@ int Analysis::analysisTrain(std::pair<QString, QString> &ticketStr, QVector<QPai
                             trainInfoVec[trainNoIdx][EARRIVETIME],
                             trainInfoVec[trainNoIdx][ESPENDTIME]));
         QVector<std::pair<int, int>> seatVec = trainSelectSeatType(trainNoIdx);
-        ud->submitTicketInfo.startSTationName = startStation;
-        ud->submitTicketInfo.endStationName = endStation;
-        ud->submitTicketInfo.fromTime = trainInfoVec[trainNoIdx][ESTARTTIME];
-        ud->submitTicketInfo.toTime = trainInfoVec[trainNoIdx][EARRIVETIME];
-        ud->submitTicketInfo.travelTime = trainInfoVec[trainNoIdx][ESPENDTIME];
         ticketStr = generateSubmitTicketInfo(trainNoIdx, seatVec, submitSeatType);
     }
     return trainNoIdx;

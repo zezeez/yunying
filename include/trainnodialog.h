@@ -16,7 +16,7 @@ public:
     void setUp();
     void updateSelectedTips();
     bool hasTrain(const QString &trainInfo);
-    void addTrain(const QString &trainInfo, const QString &display);
+    void addTrain(const QString &trainInfo);
     void addTrainFinish();
     void addSelectedTrain(const QString &trainInfo);
     void removeSelectedTrain(const QString &trainInfo);
