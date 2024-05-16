@@ -31,7 +31,9 @@ public:
         bool isDong = false;
         bool isStart = false, isEnd = false;
         bool handled = false;
+        bool trunc = false;
         int type = 0;
+        int width, textWidth;
         QString text;
         QRect rect;
         QPen pen(QColor(99, 184, 255), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -62,11 +64,20 @@ public:
             font.setPointSize(10);
             font.setBold(true);
             painter->setFont(font);
+            width = option.rect.width() - start.width();
+            textWidth = text.size() << 4;
+            while (!text.isEmpty() && width < textWidth) {
+                text.truncate(text.size() - 1);
+                textWidth -= 16;
+                trunc = true;
+            }
+            if (trunc) {
+                text += _("..");
+            }
             rect = painter->boundingRect(rect.right() + 1, rect.y(),
-                                         option.rect.width() - start.width(),
+                                         width,
                                          option.rect.height(), Qt::AlignCenter, text);
             painter->drawText(rect, text);
-            //painter->drawText(rect.right() + 1, rect.bottom(), fromName);
             painter->restore();
             break;
         case ETOSTATIONCOL:
@@ -89,11 +100,21 @@ public:
             font.setPointSize(10);
             font.setBold(true);
             painter->setFont(font);
+            width = option.rect.width() - start.width();
+            textWidth = text.size() << 4;
+            while (!text.isEmpty() && width < textWidth) {
+                text.truncate(text.size() - 1);
+                textWidth -= 16;
+                trunc = true;
+            }
+            if (trunc) {
+                text += _("..");
+            }
             rect = painter->boundingRect(rect.right() + 1, rect.y(),
-                                         option.rect.width() - start.width(),
+                                         width,
                                          option.rect.height(), Qt::AlignCenter, text);
+
             painter->drawText(rect, text);
-            //painter->drawText(rect.right() + 1, rect.bottom(), fromName);
             painter->restore();
             break;
         case EOTHERCOL:
@@ -161,9 +182,8 @@ public:
             QStyledItemDelegate::paint(painter, option, index);
             return;
         }
-
-        //QPixmap pixmap = fu.scaled(option.rect.width() / 2, option.rect.height(), Qt::KeepAspectRatio);
     }
+
 private:
     QPixmap fu;
     QPixmap zi;

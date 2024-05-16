@@ -141,7 +141,7 @@ public:
     void candidateTrain();
     void candidateTrainReply(QNetworkReply *reply);
     void showCandidateWarn(const QString &face_check_code, bool is_show_qrcode);
-    void handlecandidateError();
+    void handleCandidateError();
     void candidateEntry(const struct CandidateDateInfo &dInfo);
     void chechFace(const struct CandidateDateInfo &dInfo);
     void checkFaceReply(QNetworkReply *reply);

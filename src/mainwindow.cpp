@@ -519,7 +519,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             QString train = resultList[i].toString();
             QStringList trainInfo = train.split('|');
 
-            if (trainInfo.size() < ESEATTYPES) {
+            if (trainInfo.size() < ETRAININFOMAX) {
                 continue;
             }
             if (trainInfo[ESECRETSTR].isEmpty()) {
@@ -631,7 +631,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         QPushButton *button;
         QString curText;
 
-        if (trainInfo.size() < ESEATTYPES) {
+        if (trainInfo.size() < ETRAININFOMAX) {
             useTrainListSize--;
             continue;
         }
@@ -678,7 +678,8 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 can_booking++;
             }
         }
-        if (trainInfo[ESECRETSTR].isEmpty() && trainInfo[ECANWEBBUY] == _("IS_TIME_NOT_BUY")) {
+        if ((trainInfo[ECONTROLLEDTRAINFLAG] == _("1") || trainInfo[ECONTROLLEDTRAINFLAG] == _("2")) ||
+            (trainInfo[ESECRETSTR].isEmpty() && trainInfo[ECANWEBBUY] == _("IS_TIME_NOT_BUY"))) {
             invalidTrain.push_back(trainInfo);
             //useTrainListSize--;
             continue;
@@ -774,27 +775,25 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 model->setItem(itemIdx, seatTypeData.first, item);
             }
 
-            if (uc.showTicketPrice == false) {
-                bool canCandidate = false;
-                curText = trainInfo[seatTypeData.second].isEmpty() ? _("--") :
-                                  trainInfo[seatTypeData.second];
-                if (!trainInfo[ESECRETSTR].isEmpty() && trainInfo[ECANDIDATETRAINFLAG] == _("1") &&
-                    curText == _("无")) {
-                    QChar seatTypeCode = seatTypeEnumTransToSubmitCode(seatTypeData.second);
-                    if (seatTypeCode != '0' && seatTypeCode != 'W') {
-                        curText = _("候补");
-                        if (!trainInfo[ECANDIDATESEATLIMIT].contains(seatTypeCode)) {
-                            canCandidate = true;
-                        }
+            bool canCandidate = false;
+            curText = trainInfo[seatTypeData.second].isEmpty() ? _("--") :
+                              trainInfo[seatTypeData.second];
+            if (!trainInfo[ESECRETSTR].isEmpty() && trainInfo[ECANDIDATETRAINFLAG] == _("1") &&
+                curText == _("无")) {
+                QChar seatTypeCode = seatTypeEnumTransToSubmitCode(seatTypeData.second);
+                if (seatTypeCode != '0' && seatTypeCode != 'W') {
+                    curText = _("候补");
+                    if (!trainInfo[ECANDIDATESEATLIMIT].contains(seatTypeCode)) {
+                        canCandidate = true;
                     }
                 }
-                if (item->text() != curText) {
-                    item->setText(curText);
-                    setRemainTicketColor(curText, item, canCandidate);
-                    item->setData(canCandidate, Qt::WhatsThisRole);
-                    item->setData(curText, Qt::StatusTipRole);
-                    item->setTextAlignment(Qt::AlignCenter);
-                }
+            }
+            if (item->text() != curText) {
+                item->setText(curText);
+                setRemainTicketColor(curText, item, canCandidate);
+                item->setData(canCandidate, Qt::WhatsThisRole);
+                item->setData(curText, Qt::StatusTipRole);
+                item->setTextAlignment(Qt::AlignCenter);
             }
 
             if (seatTypeData.first == EOTHERCOL) {
@@ -879,24 +878,39 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 QMap<char, QStandardItem *>::ConstIterator it =
                     tableSeatTypeItemsMap.find(t);
                 if (it != tableSeatTypeItemsMap.cend()) {
-                    it.value()->setToolTip(_("%1").arg(price2));
-                    it.value()->setData(price2, Qt::ToolTipRole);
-                    if (uc.showTicketPrice) {
-                        it.value()->setText(_("%1").arg(price2));
+                    if (it.value()->text() != _("--")) {
+                        it.value()->setToolTip(_("%1").arg(price2));
+                        it.value()->setData(price2, Qt::ToolTipRole);
+                        if (uc.showTicketPrice) {
+                            it.value()->setText(_("%1").arg(price2));
+                            it.value()->setForeground(QBrush(QColor(238, 118, 33)));
+                        }
                     }
                 } else {
                     // 其他
                     if (dd < 3000) {
-                        if (tableSeatTypeItems.size() > 10) {
+                        if (tableSeatTypeItems.size() > 10 &&
+                            tableSeatTypeItems[10]->text() != _("--")) {
                             tableSeatTypeItems[10]->setToolTip(_("%1").arg(price2));
                             tableSeatTypeItems[10]->setData(price2, Qt::ToolTipRole);
+                            if (uc.showTicketPrice) {
+                                tableSeatTypeItems[10]->setText(_("%1").arg(price2));
+                                tableSeatTypeItems[10]->setForeground(QBrush(QColor(238, 118, 33)));
+                            }
                         }
                     }
                 }
                 // 无座
                 if (dd >= 3000) {
-                    tableSeatTypeItems[9]->setToolTip(_("%1").arg(price2));
-                    tableSeatTypeItems[9]->setData(price2, Qt::ToolTipRole);
+                    if (tableSeatTypeItems.size() > 9 &&
+                        tableSeatTypeItems[9]->text() != _("--")) {
+                        tableSeatTypeItems[9]->setToolTip(_("%1").arg(price2));
+                        tableSeatTypeItems[9]->setData(price2, Qt::ToolTipRole);
+                        if (uc.showTicketPrice) {
+                            tableSeatTypeItems[9]->setText(_("%1").arg(price2));
+                            tableSeatTypeItems[9]->setForeground(QBrush(QColor(238, 118, 33)));
+                        }
+                    }
                 }
             }
 
@@ -1886,7 +1900,7 @@ void MainWindow::about()
 {
     QMessageBox::about(this, tr("关于云映"),
                        tr("<p>云映客户端版本 " THISVERSION "</p>"
-                          "<p>本程序<a href=\"https://www.op9.top\">云映</a>仅限于个人使用，不可商用</p>"
+                          "<p>本程序<a href=\"https://www.op9.top\">云映</a>仅限于个人使用，不可用于商业用途</p>"
                           "<p>本软件完全由个人靠业余时间开发，作者承诺软件不会上传或存储任何个人隐私信息，并且作者不会通过软件非法获利，请放心使用.</p>"
                           "<p>获取帮助&&问题反馈请发送邮件至gethelp@88.com</p>"
                           ));

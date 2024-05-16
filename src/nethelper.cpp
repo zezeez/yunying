@@ -919,7 +919,7 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     //qDebug() << varMap;
@@ -928,7 +928,7 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
     bool status = varMap[QStringLiteral("status")].toBool();
     if (!status) {
         ud->candidateRunStatus = EGETDIFFDATEDATAFAILED;
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     QNetworkRequest req = reply->request();
@@ -942,7 +942,7 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
         }
     }
     if (date.isEmpty()) {
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
 
@@ -950,13 +950,13 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
 
     if (stationMap.isEmpty()) {
         ud->runStatus = EGETDIFFDATEDATAFAILED;
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     QVariantList resultList = data[_("result")].toList();
     if (resultList.isEmpty()) {
         ud->runStatus = EGETDIFFDATEDATAFAILED;
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     QVector<QStringList> allTrain;
@@ -982,7 +982,7 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
         Analysis ana(allTrain);
         ana.mayCandidate(stationMap, date);
     } else {
-        handlecandidateError();
+        handleCandidateError();
     }
 }
 
@@ -1486,10 +1486,10 @@ void NetHelper::getQueueCountReply(QNetworkReply *reply)
     QVariantMap data = varMap[QStringLiteral("data")].toMap();
     bool isRelogin = data[QStringLiteral("isRelogin")].toBool();
     if (isRelogin) {
-        w->hide();
-        w->loginDialog->show();
-        UserData::instance()->setRunStatus(EIDLE);
-        netStatInc(ESUBMITFAILED);
+        w->formatOutput(_("当前登陆状态已失效，需要重新登陆"));
+        w->startOrStopGrabTicket();
+        getLoginConf();
+        handleError();
         return;
     }
     QStringList ticketList = data[_("ticket")].toString().split(',');
@@ -1629,7 +1629,7 @@ void NetHelper::confirmSingleReply(QNetworkReply *reply)
         if (errMsg.startsWith(_("对不起，由于您取消次数过多，今日将不能继续受理您的订票请求"))) {
             w->startOrStopGrabTicket();
         }
-        mayFrozenCurrentTrain(_("无法提交订单，把%1加入冻结列表%@秒")
+        mayFrozenCurrentTrain(_("无法提交订单，把%1加入冻结列表%2秒")
                                   .arg(ud->submitTicketInfo.trainCode)
                                   .arg(ud->grabSetting.frozenSeconds));
         handleError();
@@ -1962,7 +1962,7 @@ void NetHelper::showCandidateWarn(const QString &face_check_code, bool is_show_q
     }
 }
 
-void NetHelper::handlecandidateError()
+void NetHelper::handleCandidateError()
 {
     UserData *ud = UserData::instance();
     ud->candidateInfo.diffDateTrain.clear();
@@ -2027,7 +2027,7 @@ void NetHelper::checkFaceReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     qDebug() << varMap;
@@ -2060,17 +2060,19 @@ void NetHelper::checkFaceReply(QNetworkReply *reply)
         if (face_flag == false) {
             bool is_show_qrcode = data[_("is_show_qrcode")].toBool();
             showCandidateWarn(face_check_code, is_show_qrcode);
-            handlecandidateError();
-            w->formatOutput(_("候补下单时遇到错误: face flag is false"));
+            handleCandidateError();
+            w->formatOutput(_("候补下单时遇到错误: 人证核验未通过"));
             QStringList messages = varMap[_("messages")].toStringList();
             qDebug() << messages;
         } else {
             submitCandidateOrderRequest();
         }
     } else {
-        handlecandidateError();
+        handleCandidateError();
         qDebug() << "login flag is false";
-        w->formatOutput(_("候补下单时遇到错误: login flag is false"));
+        w->formatOutput(_("候补下单时遇到错误: 用户未登陆"));
+        w->startOrStopGrabTicket();
+        getLoginConf();
         QStringList messages = varMap[_("messages")].toStringList();
         qDebug() << messages;
     }
@@ -2090,7 +2092,7 @@ void NetHelper::submitCandidateOrderRequestReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     qDebug() << varMap;
@@ -2103,7 +2105,7 @@ void NetHelper::submitCandidateOrderRequestReply(QNetworkReply *reply)
         QString face_check_code = data[_("face_check_code")].toString();
         bool is_show_qrcode = data[_("is_show_qrcode")].toBool();
         showCandidateWarn(face_check_code, is_show_qrcode);
-        handlecandidateError();
+        handleCandidateError();
     }
 }
 
@@ -2119,7 +2121,7 @@ void NetHelper::passengerInitApiReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     qDebug() << varMap;
@@ -2129,7 +2131,7 @@ void NetHelper::passengerInitApiReply(QNetworkReply *reply)
     int endTime;
     if (jzdhDiffSelect.isEmpty()) {
         w->formatOutput(_("服务器没有返回候补截止时间！"));
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     int endCandidateMinutes = UserData::instance()->candidateSetting.selectedEndCandidateMinutes;
@@ -2176,6 +2178,7 @@ void NetHelper::passengerInitApiReply(QNetworkReply *reply)
         getCandidateQueueNum();
     } else {
         w->formatOutput(_("无可选截止时间，候补流程提前结束！"));
+        handleCandidateError();
     }
 
 }
@@ -2192,7 +2195,7 @@ void NetHelper::getCandidateQueueNumReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     qDebug() << varMap;
@@ -2411,7 +2414,7 @@ void NetHelper::confirmHBReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     qDebug() << __FUNCTION__;
@@ -2423,13 +2426,13 @@ void NetHelper::confirmHBReply(QNetworkReply *reply)
         if (!messages.isEmpty()) {
             w->formatOutput(messages[0]);
         }
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     QVariantMap data = varMap[_("data")].toMap();
     if (data.isEmpty()) {
         w->formatOutput(_("系统忙，请稍后再试！"));
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     QString msg = data[_("msg")].toString();
@@ -2445,7 +2448,7 @@ void NetHelper::confirmHBReply(QNetworkReply *reply)
             if (!msg.isEmpty()) {
                 w->formatOutput(msg);
             }
-            handlecandidateError();
+            handleCandidateError();
         }
     } else {
         if (flag) {
@@ -2455,7 +2458,7 @@ void NetHelper::confirmHBReply(QNetworkReply *reply)
                 w->formatOutput(_("系统错误"));
             }
         }
-        handlecandidateError();
+        handleCandidateError();
     }
 }
 
@@ -2471,7 +2474,7 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     qDebug() << __FUNCTION__;
@@ -2480,7 +2483,7 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
     QVariantMap data = varMap[_("data")].toMap();
     if (data.isEmpty()) {
         w->formatOutput(_("系统忙，请稍后再试！"));
-        handlecandidateError();
+        handleCandidateError();
         return;
     }
     int status = data[_("status")].toInt();
@@ -2501,7 +2504,7 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
                 lineUptoPayConfirm(reserve_no);
             } else if (status == -1) {
                 w->formatOutput(!msg.isEmpty() ? msg : _("排队失败！"));
-                handlecandidateError();
+                handleCandidateError();
                 if (queryCandidateTimer) {
                     queryCandidateTimer->stop();
                 }
@@ -2523,7 +2526,7 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
             }
         } else {
             w->formatOutput(!msg.isEmpty() ? msg : _("系统错误"));
-            handlecandidateError();
+            handleCandidateError();
             if (queryCandidateTimer) {
                 queryCandidateTimer->stop();
             }
@@ -2535,7 +2538,7 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
             lineUptoPayConfirm(reserve_no);
         } else {
             w->formatOutput(!msg.isEmpty() ? msg : _("系统错误"));
-            handlecandidateError();
+            handleCandidateError();
         }
         if (queryCandidateTimer) {
             queryCandidateTimer->stop();
@@ -3217,7 +3220,7 @@ void NetHelper::checkUpdateReply(QNetworkReply *reply)
 #ifdef HAS_CDN
 void NetHelper::getCdn()
 {
-    QUrl url(_("http://101.201.78.185:8080/api/getcdn"));
+    QUrl url(_(GETCDNURL));
     anyGet(url, &NetHelper::getCdnReply);
     w->formatOutput(_("正在从服务器获取cdn..."));
 }
