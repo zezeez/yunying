@@ -2,7 +2,14 @@
 
 *由Qt构建的 12306 GUI购票工具*
 
-![](https://img.shields.io/badge/GPL-v3-blue.svg) ![](https://img.shields.io/badge/Qt-6.0.0-blue.svg) ![](https://img.shields.io/badge/C++-11-deeppink.svg) ![](https://img.shields.io/badge/Windows-green.svg) ![](https://img.shields.io/badge/MACOS-green.svg) ![](https://img.shields.io/badge/Linux-green.svg) ![](https://img.shields.io/badge/12306-red.svg)
+![](https://img.shields.io/badge/GPL-v3-blue.svg)
+![](https://img.shields.io/badge/Qt-6.0.0-blue.svg)
+![](https://img.shields.io/badge/C++-11-deeppink.svg)
+![](https://img.shields.io/badge/12306-App-red.svg)
+
+![](https://img.shields.io/badge/-Windows-blue?logo=windows)
+![](https://img.shields.io/badge/-MacOS-black?logo=apple)
+![](https://img.shields.io/badge/-Linux-333?logo=ubuntu)
 
 ### 支持功能
 - **即时下单**
