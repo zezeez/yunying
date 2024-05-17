@@ -53,6 +53,7 @@ SOURCES += \
     src/sliderwidget.cpp \
     src/sysutil.cpp \
     src/trainnodialog.cpp \
+    src/upgrademanager.cpp \
     src/userdata.cpp \
     src/nethelper.cpp \
     src/completeredit.cpp \
@@ -81,6 +82,7 @@ HEADERS += \
     include/sliderwidget.h \
     include/sysutil.h \
     include/trainnodialog.h \
+    include/upgrademanager.h \
     include/userdata.h \
     include/completeedit.h \
     include/version.h \

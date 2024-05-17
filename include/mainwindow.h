@@ -16,6 +16,7 @@
 #include <QProgressBar>
 #include <QDateEdit>
 #include <QMediaPlayer>
+#include <QProgressDialog>
 #include "passengerdialog.h"
 #include "trainnodialog.h"
 #include "seattypedialog.h"
@@ -26,6 +27,7 @@
 #include "chart/linechart.h"
 #include "lib/ntp/include/ntp.h"
 #include "selltimequerydialog.h"
+#include "upgrademanager.h"
 
 namespace Ui {
 class MainWindow;
@@ -101,7 +103,10 @@ public:
     void stopPlayMusic();
     void startOrStopPlayMusic();
     void setMusicPath(const QString &path);
+
+    // update
     void checkUpdateReply(const QVariantMap &varMap);
+    void confirmUpdate();
 
 private:
     Ui::MainWindow *ui;
@@ -151,6 +156,8 @@ public:
     LineChartView *delayChart;
 
     Ntp ntp;
+
+    UpgradeManager upgradeMng;
 };
 
 #endif // MAINWINDOW_H

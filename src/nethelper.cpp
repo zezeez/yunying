@@ -3217,6 +3217,45 @@ void NetHelper::checkUpdateReply(QNetworkReply *reply)
     w->checkUpdateReply(varMap);
 }
 
+void NetHelper::downloadFile(const QString &fileUrl)
+{
+    QUrl url(fileUrl);
+    anyGet(url, &NetHelper::downloadFileReply);
+    QMap<QNetworkReply *, replyCallBack>::const_iterator it;
+    for (it = replyMap.cbegin(); it != replyMap.cend(); ++it) {
+        if (it.value() == &NetHelper::downloadFileReply) {
+            connect(it.key(), &QNetworkReply::downloadProgress, this, &NetHelper::downloadProgress);
+            break;
+        }
+    }
+}
+
+void NetHelper::downloadFileReply(QNetworkReply *reply)
+{
+    if (checkReplyOk(reply)) {
+        w->upgradeMng.downloadFailed(reply->url());
+        return;
+    }
+
+    w->upgradeMng.downloadFinished(reply->url(), reply->readAll());
+}
+
+void NetHelper::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
+{
+    w->upgradeMng.downloadProgress(bytesReceived, bytesTotal);
+}
+
+void NetHelper::cancelDownload()
+{
+    QMap<QNetworkReply *, replyCallBack>::const_iterator it;
+    for (it = replyMap.cbegin(); it != replyMap.cend(); ++it) {
+        if (it.value() == &NetHelper::downloadFileReply) {
+            it.key()->abort();
+            break;
+        }
+    }
+}
+
 #ifdef HAS_CDN
 void NetHelper::getCdn()
 {

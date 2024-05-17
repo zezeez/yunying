@@ -6,6 +6,7 @@
 #include <QTimeZone>
 #include <sysutil.h>
 #include "nethelper.h"
+#include "version.h"
 
 #define _ QStringLiteral
 
@@ -33,7 +34,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName(_("云映"));
 
     w = new MainWindow;
-    w->setWindowTitle(QObject::tr("云映"));
+    w->setWindowTitle(QObject::tr("云映 ") + QObject::tr(THISVERSION));
     w->setWindowIcon(QIcon(_(":/icon/images/ticket.ico")));
     w->loadStationName();
 

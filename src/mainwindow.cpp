@@ -130,6 +130,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     loginDialog = new LoginDialog;
     loginDialog->setUp();
+    loginDialog->setWindowTitle(tr("云映 ") + tr(THISVERSION));
 
     selltimeDialog = new SellTimeQueryDialog(this);
     selltimeDialog->setup();
@@ -1588,6 +1589,8 @@ void MainWindow::checkUpdateReply(const QVariantMap &varMap)
         break;
     case 1:
         verInfo = varMap[_("verInfo")].toMap();
+        upgradeMng.setNewVersion(verInfo[_("version")].toString());
+        upgradeMng.setUpgradeUrl(verInfo[_("downloadUrl")].toString());
         msg += _("新版本可用，是否更新？\n");
         msg += _("新版本：\n") + verInfo[_("version")].toString() + _("\n");
         msg += _("当前版本：\n") + _(THISVERSION) + _("\n\n");
@@ -1597,11 +1600,10 @@ void MainWindow::checkUpdateReply(const QVariantMap &varMap)
         scrollArea = new QScrollArea;
         scrollArea->setWidget(msgLabel);
         vlayout.addWidget(scrollArea);
-        connect(&yes, &QPushButton::clicked, &dialog, [verInfo, &dialog]() {
-            QString url;
-            url = verInfo[_("downloadUrl")].toString();
-            QDesktopServices::openUrl(QUrl(url));
+        connect(&yes, &QPushButton::clicked, this, [&dialog, this]() {
             dialog.close();
+            //upgradeMng.doUpgrade("../yuny_0.2.0.zip");
+            confirmUpdate();
         });
         connect(&no, &QPushButton::clicked, &dialog, [&dialog]() {
             dialog.close();
@@ -1614,8 +1616,10 @@ void MainWindow::checkUpdateReply(const QVariantMap &varMap)
         dialog.setLayout(&vlayout);
         dialog.resize(300, 300);
         dialog.exec();
+
         // msgLabel would be destroyed when destroying scrollArea
         delete scrollArea;
+
         /*button = QMessageBox::information(this, _("版本更新"), msg, QMessageBox::Yes | QMessageBox::No);
         if (button == QMessageBox::Yes) {
             url = verInfo[_("downloadUrl")].toString();
@@ -1631,6 +1635,11 @@ void MainWindow::checkUpdateReply(const QVariantMap &varMap)
     default:
         break;
     }
+}
+
+void MainWindow::confirmUpdate()
+{
+    upgradeMng.prepareUpgrade();
 }
 
 void MainWindow::rightMenuSelectTrain()

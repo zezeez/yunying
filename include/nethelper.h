@@ -204,6 +204,10 @@ public:
     // 检查更新
     void checkUpdate();
     void checkUpdateReply(QNetworkReply *reply);
+    void downloadFile(const QString &fileUrl);
+    void downloadFileReply(QNetworkReply *reply);
+    void downloadProgress(qint64 bytesReceived, qint64 bytesTotal);
+    void cancelDownload();
 
     // 获取CDN
 #ifdef HAS_CDN
