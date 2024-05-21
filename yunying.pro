@@ -116,7 +116,12 @@ RC_ICONS = images/ticket.ico
 #win32 {
 #    LIBS += -lUser32
 #}
-#unix {
-#    LIBS += -lodbc
-#}
+
+unix {
+    qml_debug {
+        QMAKE_CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer -fsanitize-recover=address
+        LIBS += -lasan
+    }
+}
+
 

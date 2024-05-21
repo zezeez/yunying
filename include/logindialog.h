@@ -5,6 +5,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QLabel>
+#include <QComboBox>
 #include <completeedit.h>
 #include <QTabWidget>
 #include "serverip.h"
