@@ -1,7 +1,12 @@
 #ifdef HAS_CDN
 #include "cdn.h"
 #include "userdata.h"
+#include "mainwindow.h"
 #include <QRandomGenerator>
+
+#define _ QStringLiteral
+
+extern MainWindow *w;
 
 Cdn::Cdn(QObject *parent) : QObject(parent)
 {
@@ -66,6 +71,7 @@ void Cdn::socketEncrypted()
     if (!allCdn.isEmpty()) {
         avaliableCdn.append(allCdn.front());
         qDebug() << "add ava host: " << allCdn.front();
+        w->updateAvaliableCdnNum(avaliableCdn.size());
         allCdn.pop_front();
     }
     ssl->disconnectFromHost();
@@ -111,6 +117,7 @@ void Cdn::addAvaliableCdn(const QString &cdn)
     UserData *ud = UserData::instance();
     if (ud->generalSetting.cdnEnable) {
         avaliableCdn.append(cdn);
+        w->updateAvaliableCdnNum(avaliableCdn.size());
     }
 }
 

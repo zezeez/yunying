@@ -24,7 +24,7 @@
 - **Server酱通知**
 
 ### 测试平台
-![](https://img.shields.io/badge/Windowns-10-pass.svg) ![](https://img.shields.io/badge/MACOS-12.5.3-pass.svg) ![](https://img.shields.io/badge/Ubuntu-20.04-pass.svg)
+![](https://img.shields.io/badge/Windows-10-pass.svg) ![](https://img.shields.io/badge/MACOS-12.5.3-pass.svg) ![](https://img.shields.io/badge/Ubuntu-20.04-pass.svg)
 
 ### 应用下载地址 - https://www.op9.top
 

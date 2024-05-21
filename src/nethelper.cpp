@@ -103,10 +103,6 @@ NetHelper::NetHelper(QObject *parent) : QObject(parent),
     keepLoginTimer = new QTimer;
     connect(keepLoginTimer, &QTimer::timeout, this, &NetHelper::keepLogin);
     keepLoginTimer->setInterval(5 * 60 * 1000);
-
-#ifdef HAS_CDN
-    sip.dnsAnswer("kyfw.12306.cn");
-#endif
 }
 
 void NetHelper::networkReplyHandle(QNetworkReply *reply)
@@ -494,7 +490,7 @@ void NetHelper::getLoginConfReply(QNetworkReply *reply)
         isUamLogin();
     } else {
         if (lconf.isLogin) {
-            w->showMainWindow();
+            w->uamLogined();
         } else {
             // 隐藏扫码登录入口
             w->loginDialog->hideQrCodeTab();
@@ -503,8 +499,11 @@ void NetHelper::getLoginConfReply(QNetworkReply *reply)
                 // 显示验证方式
                 w->loginDialog->showSmsVerification();
             }*/
+            keepLoginTimer->stop();
+#ifdef HAS_CDN
+            cdn.setMainCdn("");
+#endif
         }
-        keepLoginTimer->stop();
     }
 }
 
@@ -513,12 +512,7 @@ void NetHelper::onLogin()
     QUrl url = QStringLiteral(CHECK_LOGIN_PASSPORT_URL);
     ReqParam param;
     UserData *ud = UserData::instance();
-#ifdef HAS_CDN
-    QString h = cdn.getRandomCdn();
-    if (!h.isEmpty()) {
-        cdn.setMainCdn(h);
-    }
-#endif
+
     LoginConf loginConf = LoginConf::instance();
     if (loginConf.isUamLogin) {
         param.put(_("username"), ud->getUserLoginInfo().userName);
@@ -623,6 +617,9 @@ void NetHelper::isUamLoginReply(QNetworkReply *reply)
             // 隐藏扫码登录入口
             w->loginDialog->hideQrCodeTab();
         }
+#ifdef HAS_CDN
+        cdn.setMainCdn("");
+#endif
     }
 }
 
@@ -766,18 +763,16 @@ void NetHelper::logoutReply(QNetworkReply *reply)
     if (checkReplyOk(reply) < 0)
         return;
     w->logoutSuccess();
+#ifdef HAS_CDN
+    cdn.setMainCdn("");
+#endif
 }
 
 void NetHelper::createQrCode()
 {
     ReqParam data;
     QUrl url = QStringLiteral(QR64);
-#ifdef HAS_CDN
-    QString h = cdn.getRandomCdn();
-    if (!h.isEmpty()) {
-        cdn.setMainCdn(h);
-    }
-#endif
+
     data.put(_("appid"), _(PASSPORT_APPID));
     post(url, data, &NetHelper::createQrCodeReply);
     w->loginDialog->showLoadingQrCode();
@@ -1105,6 +1100,7 @@ void NetHelper::getPassengerInfoReply(QNetworkReply *reply)
     }
     //qDebug() << list;
 
+    const QList<QString> &selectedPassenger = w->passengerDialog->getSelectedPassenger();
     UserData *ud = UserData::instance();
     ud->passenger.clear();
     w->passengerDialog->clearPassenger();
@@ -1115,6 +1111,12 @@ void NetHelper::getPassengerInfoReply(QNetworkReply *reply)
         pinfo = ud->setPassengerInfo(map);
         ud->passenger.push_back(pinfo);
         w->passengerDialog->addUnSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
+        for (auto &p : selectedPassenger) {
+            if (p == pinfo.passName) {
+                w->passengerDialog->addSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
+                break;
+            }
+        }
     }
     list = data[_("dj_passengers")].toList();
     if (!list.isEmpty()) {
@@ -1124,6 +1126,12 @@ void NetHelper::getPassengerInfoReply(QNetworkReply *reply)
             pinfo = ud->setPassengerInfo(map);
             ud->djPassenger.push_back(pinfo);
             w->passengerDialog->addUnSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
+            for (auto &p : selectedPassenger) {
+                if (p == pinfo.passName) {
+                    w->passengerDialog->addSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
+                    break;
+                }
+            }
         }
     }
     QString message = data[QStringLiteral("notify_for_gat")].toString();
@@ -3225,6 +3233,7 @@ void NetHelper::downloadFile(const QString &fileUrl)
     for (it = replyMap.cbegin(); it != replyMap.cend(); ++it) {
         if (it.value() == &NetHelper::downloadFileReply) {
             connect(it.key(), &QNetworkReply::downloadProgress, this, &NetHelper::downloadProgress);
+            w->upgradeMng.downloadProgressInit(0, QDateTime::currentSecsSinceEpoch());
             break;
         }
     }
@@ -3280,13 +3289,37 @@ void NetHelper::getCdnReply(QNetworkReply *reply)
         }
     }
     QStringList cdnList = varMap[_("cdnList")].toStringList();
+    w->formatOutput(_("从服务器获取到%1个CDN").arg(cdnList.size()));
     if (!cdnList.isEmpty()) {
+        w->formatOutput(_("正在进行CDN可用性测试..."));
         cdn.addCdns(cdnList);
         cdn.startTest();
     }
-     w->formatOutput(_("从服务器获取到%1个cdn").arg(cdnList.size()));
 
     //qDebug() << varMap;
+}
+
+void NetHelper::getIpLocation(const QString &ip)
+{
+     //QUrl url(_("http://ipapi.co/") + ip + _("/json"));
+     QUrl url(_("http://api.db-ip.com/v2/free/") + ip);
+     anyGet(url, &NetHelper::getIpLocationReply);
+}
+
+void NetHelper::getIpLocationReply(QNetworkReply *reply)
+{
+     QVariantMap varMap;
+     if (replyIsOk(reply, varMap) < 0) {
+        return;
+     }
+     QString ip = varMap[_("ipAddress")].toString();
+     QString city = varMap[_("city")].toString();
+     QString region = varMap[_("stateProv")].toString();
+     QString countryName = varMap[_("countryName")].toString();
+
+     if (!ip.isEmpty() && !city.isEmpty()) {
+        w->loginDialog->setLoginServerLocation(ip, _("%1-%2-%3").arg(countryName, region, city));
+     }
 }
 #endif
 

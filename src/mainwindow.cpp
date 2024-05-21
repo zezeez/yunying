@@ -789,27 +789,21 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                     }
                 }
             }
+            int type = 0;
+            SETCANCANDIDATE(type, canCandidate);
+            setRemainTicketColor(curText, item, canCandidate);
             if (item->text() != curText) {
                 item->setText(curText);
-                setRemainTicketColor(curText, item, canCandidate);
-                item->setData(canCandidate, Qt::WhatsThisRole);
-                item->setData(curText, Qt::StatusTipRole);
+                item->setData(curText, Qt::WhatsThisRole);
                 item->setTextAlignment(Qt::AlignCenter);
             }
 
             if (seatTypeData.first == EOTHERCOL) {
-                int type = 0;
-                if (isFunXing) {
-                    type = 1 << 0;
-                }
-                if (isZiNeng) {
-                    type = type | (1 << 1);
-                }
-                if (isDongGan) {
-                    type = type | (1 << 2);
-                }
-                item->setData(type, Qt::UserRole);
+                SETFUXING(type, isFunXing);
+                SETZINENG(type, isZiNeng);
+                SETDONGGAN(type, isDongGan);
             }
+            item->setData(type, Qt::UserRole);
 
             tableSeatTypeItems.push_back(item);
         }
@@ -1443,11 +1437,11 @@ void MainWindow::switchTableTicketShowType(bool showTicketPrice)
         EOTHERCOL
     };
     int role;
-    bool canCandidate;
+    int type;
     if (showTicketPrice) {
         role = Qt::ToolTipRole;
     } else {
-        role = Qt::StatusTipRole;
+        role = Qt::WhatsThisRole;
     }
     for (int i = 0; i < rowcount; i++) {
         for (auto &seatTypeData : tableSeatTypeData) {
@@ -1461,8 +1455,8 @@ void MainWindow::switchTableTicketShowType(bool showTicketPrice)
                     if (showTicketPrice) {
                         item->setForeground(QBrush(QColor(238, 118, 33)));
                     } else {
-                        canCandidate = item->data(Qt::WhatsThisRole).toBool();
-                        setRemainTicketColor(text, item, canCandidate);
+                        type = item->data(Qt::UserRole).toInt();
+                        setRemainTicketColor(text, item, CANCANDIDATE(type));
                     }
                 } else {
                     item->setText(_("--"));
@@ -1566,6 +1560,13 @@ void MainWindow::setMusicPath(const QString &path)
         player->setSource(path);
     }
 }
+
+#ifdef HAS_CDN
+void MainWindow::updateAvaliableCdnNum(int num)
+{
+    cdnIndicatorLabel->setText(_("CDN: %1 ").arg(num));
+}
+#endif
 
 void MainWindow::checkUpdateReply(const QVariantMap &varMap)
 {
@@ -1856,12 +1857,19 @@ void MainWindow::initStatusBars()
     label = new QLabel;
     label->setIndent(3);
     statusBar()->addWidget(label);*/
+    QPixmap pixmap;
+
+#ifdef HAS_CDN
+    cdnIndicatorLabel = new QLabel;
+    cdnIndicatorLabel->setText(_("CDN: 0 "));
+    statusBar()->addPermanentWidget(cdnIndicatorLabel);
+#endif
+
     nextRequestProgress = new QProgressBar;
     nextRequestProgress->setMaximumSize(100, 20);
     statusBar()->addPermanentWidget(nextRequestProgress);
 
     netQualityIndicateLabel = new QLabel;
-    QPixmap pixmap;
     pixmap.load(_(":/icon/images/perfect.png"));
     netQualityIndicateLabel->setPixmap(pixmap);
     statusBar()->addPermanentWidget(netQualityIndicateLabel);

@@ -213,6 +213,9 @@ public:
 #ifdef HAS_CDN
     void getCdn();
     void getCdnReply(QNetworkReply *reply);
+
+    void getIpLocation(const QString &ip);
+    void getIpLocationReply(QNetworkReply *reply);
 #endif
 
 signals:
@@ -250,7 +253,6 @@ public:
     QTimer *keepLoginTimer;
 #ifdef HAS_CDN
     Cdn cdn;
-    ServerIp sip;
 #endif
 
     QString publicIp;

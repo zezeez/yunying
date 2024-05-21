@@ -26,12 +26,16 @@ public:
     int startProcess(const QString &file);
     void doUpgrade(const QString &fileName);
     void upgradeFinished();
+    void downloadProgressInit(qint64 receivedBytes, qint64 lastTime);
 
 private:
     QProgressDialog *updatePd;
     QString downloadFileName;
     QString newVersion;
     QString upgradeUrl;
+    qint64 lastDownloadTime;
+    qint64 lastBytesReceived;
+    struct FileSizeFmt lastSizeInSec;
 };
 
 #endif // UPGRADEMANAGER_H

@@ -163,6 +163,15 @@ struct UserConfig {
 };
 
 #define MAX_ALPHA_NUM 26
+#define ISFUXING(x) ((x) & (1 << 0))
+#define ISZINENG(x) ((x) & (1 << 1))
+#define ISDONGGAN(x) ((x) & (1 << 2))
+#define CANCANDIDATE(x) ((x) & (1 << 3))
+
+#define SETFUXING(x, b) ((x) = (x) | ((b) << 0))
+#define SETZINENG(x, b) ((x) = (x) | ((b) << 1))
+#define SETDONGGAN(x, b) ((x) = (x) | ((b) << 2))
+#define SETCANCANDIDATE(x, b) ((x) = (x) | ((b) << 3))
 
 struct PassengerInfo {
     inline bool operator == (const struct PassengerInfo &info) const {

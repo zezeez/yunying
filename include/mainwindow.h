@@ -103,7 +103,9 @@ public:
     void stopPlayMusic();
     void startOrStopPlayMusic();
     void setMusicPath(const QString &path);
-
+#ifdef HAS_CDN
+    void updateAvaliableCdnNum(int num);
+#endif
     // update
     void checkUpdateReply(const QVariantMap &varMap);
     void confirmUpdate();
@@ -128,7 +130,9 @@ public:
     QLabel *selectedTrainTipsLabel;
     QLabel *selectedSeatTypeTipsLabel;
     QLabel *selectedSeatTipsLabel;
-
+#ifdef HAS_CDN
+    QLabel *cdnIndicatorLabel;
+#endif
     QLabel *netQualityIndicateLabel;
     QLabel *netQualityIndicateDescLabel;
     QProgressBar *nextRequestProgress;

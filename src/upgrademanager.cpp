@@ -41,11 +41,12 @@ struct FileSizeFmt UpgradeManager::fileSizeToHumanNice(qint64 size)
         "MB",
         "GB",
         "TB",
+        "PB",
         "EB"
     };
 
     int sizeIdx = 0;
-    qint64 calcuSize = size;
+    quint64 calcuSize = size;
     while ((calcuSize >> 10) > 0) {
         calcuSize >>= 10;
         sizeIdx++;
@@ -88,27 +89,45 @@ void UpgradeManager::cancelUpgrade()
 
 void UpgradeManager::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
+    qint64 currentSecs = QDateTime::currentSecsSinceEpoch();
+    qint64 secs = currentSecs - lastDownloadTime;
+    qint64 recvBytesInSecs = bytesReceived - lastBytesReceived;
+    struct FileSizeFmt rInSecs;
+
+    if (secs > 0) {
+        rInSecs = fileSizeToHumanNice(recvBytesInSecs / secs);
+        lastSizeInSec = rInSecs;
+        lastDownloadTime = currentSecs;
+        lastBytesReceived = bytesReceived;
+    } else {
+        rInSecs = lastSizeInSec;
+    }
+
+    struct FileSizeFmt r = fileSizeToHumanNice(bytesReceived);
+
     if (bytesTotal > 0) {
         int v = bytesReceived * 100 / bytesTotal;
         updatePd->setValue(v);
-        struct FileSizeFmt r = fileSizeToHumanNice(bytesReceived);
         struct FileSizeFmt t = fileSizeToHumanNice(bytesTotal);
-        updatePd->setLabelText(_("正在下载更新文件%1        已下载: %2.%3 %4/总共: %5.%6 %7")
+        updatePd->setLabelText(_("正在下载更新文件%1        已下载: %2.%3 %4/总共: %5.%6 %7  %8 %10/s")
                                    .arg(downloadFileName)
                                    .arg(r.main)
                                    .arg(r.decimal)
                                    .arg(r.sizeUnit)
                                    .arg(t.main)
                                    .arg(t.decimal)
-                                   .arg(t.sizeUnit));
+                                   .arg(t.sizeUnit)
+                                   .arg(rInSecs.main)
+                                   .arg(rInSecs.sizeUnit));
     } else {
         updatePd->setValue(0);
-        struct FileSizeFmt r = fileSizeToHumanNice(bytesReceived);
-        updatePd->setLabelText(_("正在下载更新文件%1        已下载: %2.%3 %4/总共: 未知")
+        updatePd->setLabelText(_("正在下载更新文件%1        已下载: %2.%3 %4/总共: 未知  %5 %7/s")
                                    .arg(downloadFileName)
                                    .arg(r.main)
                                    .arg(r.decimal)
-                                   .arg(r.sizeUnit));
+                                   .arg(r.sizeUnit)
+                                   .arg(rInSecs.main)
+                                   .arg(rInSecs.sizeUnit));
     }
 }
 
@@ -197,4 +216,13 @@ void UpgradeManager::upgradeFinished()
         delete updatePd;
         updatePd = nullptr;
     }
+}
+
+void UpgradeManager::downloadProgressInit(qint64 receivedBytes, qint64 lastTime)
+{
+    lastBytesReceived = receivedBytes;
+    lastDownloadTime = lastTime;
+    lastSizeInSec.main = 0;
+    lastSizeInSec.decimal = 0;
+    lastSizeInSec.sizeUnit = _("B");
 }

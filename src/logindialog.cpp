@@ -19,6 +19,7 @@
 #include <QSettings>
 #include <QMovie>
 #include <QHostInfo>
+#include <QComboBox>
 
 LoginDialog::LoginDialog(QWidget *parent) :
     QDialog(parent)
@@ -34,14 +35,28 @@ void LoginDialog::setUp()
 {
     tabWidget = new QTabWidget;
     QSettings setting;
-    userNameLe = new QLineEdit;
-    passwdLe = new QLineEdit;
-    passwdLe->setEchoMode(QLineEdit::Password);
-    logoLabel = new QLabel;
+
     QPixmap pixmap;
     pixmap.load(QStringLiteral(":/icon/images/yy.png"));
+    logoLabel = new QLabel;
     logoLabel->setPixmap(pixmap);
     logoLabel->setAlignment(Qt::AlignCenter);
+
+#ifdef HAS_CDN
+    loginServerLa = new QLabel(tr("登陆服务器: "));
+    loginServerCb = new QComboBox;
+    loginServerCb->setMaximumWidth(200);
+    loginServerCb->addItem(_("默认"));
+    connect(loginServerCb, &QComboBox::currentIndexChanged, this, &LoginDialog::setSeletedLoginServer);
+    QString server = setting.value(_("cdn/main_cdn"), _("")).value<QString>();
+    NetHelper::instance()->cdn.setMainCdn(server);
+#endif
+    userNameLa = new QLabel(tr("账号: "));
+    userNameLe = new QLineEdit;
+    passwdLa = new QLabel(tr("密码: "));
+    passwdLe = new QLineEdit;
+    passwdLe->setEchoMode(QLineEdit::Password);
+
     QFont font;
     remindLabel1 = new QLabel;
     remindLabel1->setStyleSheet(_("color: red"));
@@ -52,9 +67,12 @@ void LoginDialog::setUp()
 
     QFormLayout *fLayout = new QFormLayout;
     fLayout->addRow(logoLabel);
-    fLayout->addRow(tr("账号："), userNameLe);
-    fLayout->addRow(tr("密码："), passwdLe);
-    fLayout->addRow(tr(""), remindLabel1);
+#ifdef HAS_CDN
+    fLayout->addRow(loginServerLa, loginServerCb);
+#endif
+    fLayout->addRow(userNameLa, userNameLe);
+    fLayout->addRow(passwdLa, passwdLe);
+    fLayout->addRow(remindLabel1);
     fLayout->setFormAlignment(Qt::AlignHCenter);
     fLayout->setSpacing(15);
 
@@ -86,28 +104,7 @@ void LoginDialog::setUp()
     idCardNumLe->hide();
     smsPb = new QPushButton;
     smsPb->setText(tr("获取验证码"));
-    connect(smsPb, &QPushButton::clicked, this, [=]() {
-        smsPb->setDisabled(true);
-        QTimer *timer = new QTimer;
-        timer->setInterval(1000);
-        connect(timer, &QTimer::timeout, this, [=]() {
-            static int count = 60;
-            if (--count == 0) {
-                if (idCardNumLe->text().trimmed().length() == 4)
-                    smsPb->setEnabled(true);
-                smsPb->setText(tr("获取验证码"));
-                timer->stop();
-                delete timer;
-                count = 60;
-            } else {
-                smsPb->setText(QString::number(count));
-            }
-        });
-        smsPb->setText(QStringLiteral("60"));
-        timer->start();
-        smsLe->setFocus();
-        NetHelper::instance()->sendSmsRequest(idCardNumLe->text().trimmed());
-    });
+    connect(smsPb, &QPushButton::clicked, this, &LoginDialog::smsRefreshLimit);
     smsPb->hide();
     smsLe->hide();
     smsPb->setMinimumHeight(20);
@@ -192,6 +189,9 @@ void LoginDialog::setUp()
     UserData::instance()->runStatus = EIDLE;
     qrCodeRefreshTimer = nullptr;
     //show();
+#ifdef HAS_CDN
+    sip.dnsAnswer("kyfw.12306.cn");
+#endif
 }
 
 void LoginDialog::tabIndexChanged(int index)
@@ -211,6 +211,9 @@ void LoginDialog::qrCodeLabelClicked()
 void LoginDialog::selectQrCodeTab()
 {
     tabWidget->setCurrentIndex(1);
+    if (qrCodeRefreshTimer) {
+        qrCodeRefreshTimer->start();
+    }
 }
 
 void LoginDialog::hideQrCodeTab()
@@ -218,6 +221,11 @@ void LoginDialog::hideQrCodeTab()
     if (tabWidget->count() == 2) {
         tabWidget->setCurrentIndex(0);
         tabWidget->removeTab(1);
+        if (qrCodeRefreshTimer) {
+            qrCodeRefreshTimer->stop();
+            delete qrCodeRefreshTimer;
+            qrCodeRefreshTimer = nullptr;
+        }
     }
 }
 
@@ -232,6 +240,33 @@ void LoginDialog::showQrCodeTab()
 void LoginDialog::selectPasswordTab()
 {
     tabWidget->setCurrentIndex(0);
+    if (qrCodeRefreshTimer) {
+        qrCodeRefreshTimer->stop();
+    }
+}
+
+void LoginDialog::smsRefreshLimit()
+{
+    smsPb->setDisabled(true);
+    QTimer *timer = new QTimer;
+    timer->setInterval(1000);
+    connect(timer, &QTimer::timeout, this, [=]() {
+        static int count = 60;
+        if (--count == 0) {
+            if (idCardNumLe->text().trimmed().length() == 4)
+                smsPb->setEnabled(true);
+            smsPb->setText(tr("获取验证码"));
+            timer->stop();
+            delete timer;
+            count = 60;
+        } else {
+            smsPb->setText(QString::number(count));
+        }
+    });
+    smsPb->setText(QStringLiteral("60"));
+    timer->start();
+    smsLe->setFocus();
+    NetHelper::instance()->sendSmsRequest(idCardNumLe->text().trimmed());
 }
 
 void LoginDialog::idCardNumLeTextChanged(const QString &text)
@@ -275,35 +310,36 @@ void LoginDialog::hideSmsVerification()
 
 void LoginDialog::hideUserNamePasswd()
 {
-    QWidget *widget = tabWidget->widget(0);
-    QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
-    QFormLayout *fLayout = static_cast<QFormLayout *>(vLayout->itemAt(0));
-
     //logoLabel->hide();
-    keepPasswdCB->hide();
-    remindLabel1->hide();
+
+#ifdef HAS_CDN
+    loginServerLa->hide();
+    loginServerCb->hide();
+#endif
+    userNameLa->hide();
     userNameLe->hide();
+    passwdLa->hide();
     passwdLe->hide();
-    QLabel *label = static_cast<QLabel *>(fLayout->itemAt(1)->widget());
-    label->hide();
-    label = static_cast<QLabel *>(fLayout->itemAt(3)->widget());
-    label->hide();
+
+    remindLabel1->hide();
+    keepPasswdCB->hide();
 }
 
 void LoginDialog::showUserNamePasswd()
 {
-    QWidget *widget = tabWidget->widget(0);
-    QVBoxLayout *vLayout = static_cast<QVBoxLayout *>(widget->layout());
-    QFormLayout *fLayout = static_cast<QFormLayout *>(vLayout->itemAt(0));
     //logoLabel->show();
-    keepPasswdCB->show();
-    remindLabel1->show();
+
+#ifdef HAS_CDN
+    loginServerLa->show();
+    loginServerCb->show();
+#endif
+    userNameLa->show();
     userNameLe->show();
+    passwdLa->show();
     passwdLe->show();
-    QLabel *label = static_cast<QLabel *>(fLayout->itemAt(1)->widget());
-    label->show();
-    label = static_cast<QLabel *>(fLayout->itemAt(3)->widget());
-    label->show();
+
+    remindLabel1->show();
+    keepPasswdCB->show();
 }
 
 void LoginDialog::onLogin()
@@ -471,3 +507,36 @@ void LoginDialog::updateQrCodeStatus(int status)
         break;
     }
 }
+
+#ifdef HAS_CDN
+void LoginDialog::addLoginServer(const QString &ip, const QString &location)
+{
+    loginServerCb->addItem(location, ip);
+}
+
+void LoginDialog::setLoginServerLocation(const QString &ip, const QString &location)
+{
+    for (int i = 1; i < loginServerCb->count(); i++) {
+        QString serverIp = loginServerCb->itemData(i).toString();
+        if (serverIp == ip) {
+            loginServerCb->setItemText(i, location);
+            loginServerCb->setItemData(i, location, Qt::ToolTipRole);
+            break;
+        }
+    }
+}
+
+void LoginDialog::setSeletedLoginServer(int index)
+{
+    if (loginServerCb->itemData(index).isValid()) {
+        QString ip = loginServerCb->itemData(index).toString();
+        NetHelper::instance()->cdn.setMainCdn(ip);
+        QSettings setting;
+        setting.setValue(_("cdn/main_cdn"), ip);
+    } else {
+        NetHelper::instance()->cdn.setMainCdn("");
+        QSettings setting;
+        setting.setValue(_("cdn/main_cdn"), "");
+    }
+}
+#endif

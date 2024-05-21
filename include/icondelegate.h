@@ -119,9 +119,9 @@ public:
             break;
         case EOTHERCOL:
             type = index.data(Qt::UserRole).toInt();
-            isFu = type & (1 << 0);
-            isZi = type & (1 << 1);
-            isDong = type & (1 << 2);
+            isFu = ISFUXING(type);
+            isZi = ISZINENG(type);
+            isDong = ISDONGGAN(type);
             if (isFu) {
                 painter->save();
                 //QPixmap pixmap2 = fu.scaled(option.rect.width() / 2, option.rect.height(), Qt::KeepAspectRatio);

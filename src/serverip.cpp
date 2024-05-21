@@ -4,6 +4,7 @@
 #include "lib/dns/include/rr.h"
 #include "serverip.h"
 #include "nethelper.h"
+#include "mainwindow.h"
 #include <QString>
 #include <QStringList>
 #include <QHostAddress>
@@ -26,6 +27,7 @@ QStringList dnsServers = {
     "221.130.33.60",
     "210.2.4.8"
 };
+extern MainWindow *w;
 
 ServerIp::ServerIp(QObject *parent) : QObject(parent)
 {
@@ -111,7 +113,9 @@ void ServerIp::recvDnsAnswer()
                 QString h = QString::fromStdString((*it)->asString());
                 if (!serverIp.contains(h)) {
                     NetHelper::instance()->cdn.addAvaliableCdn(h);
+                    NetHelper::instance()->getIpLocation(h);
                     serverIp.insert(h);
+                    w->loginDialog->addLoginServer(h, h);
                     qDebug() << "add ava host: " << h;
                 }
             }

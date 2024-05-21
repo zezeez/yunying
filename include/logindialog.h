@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <completeedit.h>
 #include <QTabWidget>
+#include "serverip.h"
 
 class LoginDialog : public QDialog
 {
@@ -21,7 +22,7 @@ public:
     void hideQrCodeTab();
     void showQrCodeTab();
     void selectPasswordTab();
-    void smsPbClicked();
+    void smsRefreshLimit();
     void showSmsVerification();
     void hideSmsVerification();
     void hideUserNamePasswd();
@@ -34,6 +35,11 @@ public:
     void showLoadingQrCode();
     void showLoadedQrCode(const QVariantMap &varMap);
     void updateQrCodeStatus(int status);
+#ifdef HAS_CDN
+    void addLoginServer(const QString &ip, const QString &location);
+    void setLoginServerLocation(const QString &ip, const QString &location);
+    void setSeletedLoginServer(int index);
+#endif
 
 public Q_SLOTS:
     void idCardNumLeTextChanged(const QString &text);
@@ -41,7 +47,13 @@ public:
     QTabWidget *tabWidget;
     QWidget *qrCodeWidget;
     QLabel *logoLabel;
+#ifdef HAS_CDN
+    QLabel *loginServerLa;
+    QComboBox *loginServerCb;
+#endif
+    QLabel *userNameLa;
     QLineEdit *userNameLe;
+    QLabel *passwdLa;
     QLineEdit *passwdLe;
     QCheckBox *keepPasswdCB;
     QLineEdit *idCardNumLe;
@@ -54,6 +66,9 @@ public:
     QPushButton *loginPb;
     QTimer *qrCodeRefreshTimer;
     QString qrCodeUuid;
+#ifdef HAS_CDN
+    ServerIp sip;
+#endif
 };
 
 #endif // LOGINDIALOG_H
