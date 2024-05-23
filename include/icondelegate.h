@@ -34,6 +34,7 @@ public:
         bool trunc = false;
         int type = 0;
         int width, textWidth;
+        int spendDays;
         QString text;
         QRect rect;
         QPen pen(QColor(99, 184, 255), 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -115,6 +116,35 @@ public:
                                          option.rect.height(), Qt::AlignCenter, text);
 
             painter->drawText(rect, text);
+            painter->restore();
+            break;
+        case EARRIVETIMECOL:
+            text = index.data(Qt::DisplayRole).toString();
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing);
+            painter->setRenderHints(QPainter::SmoothPixmapTransform);
+            if (pen.color() != Qt::white) {
+                pen.setColor(QColor(205, 104, 137));
+            }
+            painter->setPen(pen);
+            rect = painter->boundingRect(option.rect.x(), option.rect.y(),
+                                         option.rect.width(),
+                                         option.rect.height(), Qt::AlignCenter, text);
+            painter->drawText(rect, text);
+
+            spendDays = index.data(Qt::UserRole).toInt();
+            if (spendDays > 0) {
+                font.setPointSize(7);
+                painter->setFont(font);
+                text = _("+%1").arg(spendDays);
+                rect = painter->boundingRect(option.rect.x() + option.rect.width() - 18,
+                                             option.rect.y() - 5,
+                                             20,
+                                             20,
+                                             Qt::AlignCenter,
+                                             text);
+                painter->drawText(rect, text);
+            }
             painter->restore();
             break;
         case EOTHERCOL:

@@ -335,9 +335,15 @@ void MainWindow::createUiComponent()
 void MainWindow::userStartStationChanged()
 {
     UserData *ud = UserData::instance();
+    struct UserConfig &uc = ud->getUserConfig();
     QString staFromStation = fromStationLe->text().trimmed();
-    ud->getUserConfig().staFromName = staFromStation;
-    ud->getUserConfig().staFromCode = ud->getStaCode()->value(staFromStation);
+
+    uc.staFromName = staFromStation;
+    uc.staFromCode = ud->getStaCode()->value(staFromStation);
+    if (uc.staFromCode.isEmpty()) {
+        formatOutput(_("抱歉，未找到出发站名称为'%1'的站点代码，请检查出发站的站点名称是否正确").arg(uc.staFromName));
+        return;
+    }
     trainNoDialog->clearUnSelectedTrain();
     QSettings setting;
     setting.setValue(_("query_ticket/from_station_name"), staFromStation);
@@ -346,9 +352,14 @@ void MainWindow::userStartStationChanged()
 void MainWindow::userEndStationChanged()
 {
     UserData *ud = UserData::instance();
+    struct UserConfig &uc = ud->getUserConfig();
     QString staToStation = toStationLe->text().trimmed();
-    ud->getUserConfig().staToName = staToStation;
-    ud->getUserConfig().staToCode = ud->getStaCode()->value(staToStation);
+    uc.staToName = staToStation;
+    uc.staToCode = ud->getStaCode()->value(staToStation);
+    if (uc.staToCode.isEmpty()) {
+        formatOutput(_("抱歉，未找到到达站名称为'%1'的站点代码，请检查到达站的站点名称是否正确").arg(uc.staToName));
+        return;
+    }
     trainNoDialog->clearUnSelectedTrain();
     QSettings setting;
     setting.setValue(_("query_ticket/to_station_name"), staToStation);
@@ -375,6 +386,14 @@ void MainWindow::swapStation()
 
     uc.staFromName.swap(uc.staToName);
     uc.staFromCode.swap(uc.staToCode);
+    if (uc.staFromCode.isEmpty()) {
+        formatOutput(_("抱歉，未找到出发站名称为'%1'的站点代码，请检查出发站的站点名称是否正确").arg(uc.staFromName));
+        return;
+    }
+    if (uc.staToCode.isEmpty()) {
+        formatOutput(_("抱歉，未找到到达站名称为'%1'的站点代码，请检查到达站的站点名称是否正确").arg(uc.staToName));
+        return;
+    }
     trainNoDialog->clearUnSelectedTrain();
     QSettings setting;
     setting.setValue(_("query_ticket/from_station_name"), uc.staFromName);
@@ -432,7 +451,7 @@ void MainWindow::setRemainTicketColor(QString &remain, QStandardItem *item, bool
 
 void MainWindow::addTrainToSelected()
 {
-    QPushButton *button = static_cast<QPushButton *>(sender());
+    QPushButton *button = dynamic_cast<QPushButton *>(sender());
     //QStandardItemModel *itemModel = static_cast<QStandardItemModel *>(tableView->model());
     //QStandardItem *item = itemModel->item(idx);
     trainNoDialog->addSelectedTrain(_("%1 (%2 %3").arg(button->property("trainCode").toString(),
@@ -513,6 +532,10 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
     };
     QVector<QStandardItem *> tableSeatTypeItems;
     QMap<char, QStandardItem *> tableSeatTypeItemsMap;
+    QStringList timeStrList;
+    QStringList timeStrList2;
+    int spendDays, spendTime;
+    int hour;
 
     // 抢票模式先分析车票再渲染，防止渲染浪费时间
     if (ud->runStatus == EGRABTICKET) {
@@ -660,11 +683,11 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         }
         if (ud->generalSetting.startTimeRange1 != 0 ||
             ud->generalSetting.startTimeRange2 != 24) {
-            QStringList startTimeStr = trainInfo[ESTARTTIME].split(':');
-            if (!startTimeStr.isEmpty()) {
-                int startTime = startTimeStr[0].toInt();
-                if (startTime < ud->generalSetting.startTimeRange1 ||
-                    startTime >= ud->generalSetting.startTimeRange2) {
+            timeStrList = trainInfo[ESTARTTIME].split(':');
+            if (!timeStrList.isEmpty()) {
+                hour = timeStrList[0].toInt();
+                if (hour < ud->generalSetting.startTimeRange1 ||
+                    hour >= ud->generalSetting.startTimeRange2) {
                     useTrainListSize--;
                     continue;
                 }
@@ -741,6 +764,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
             item->setForeground(QBrush(QColor(205, 104, 137)));
 
         }
+
         if (item->text() != trainInfo[ESTARTTIME]) {
             item->setText(trainInfo[ESTARTTIME]);
             item->setForeground(QBrush(QColor(205, 104, 137)));
@@ -756,6 +780,23 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
         if (item->text() != trainInfo[EARRIVETIME]) {
             item->setText(trainInfo[EARRIVETIME]);
             item->setForeground(QBrush(QColor(205, 104, 137)));
+        }
+
+        if (ud->runStatus == EIDLE) {
+            timeStrList = trainInfo[ESTARTTIME].split(':');
+            timeStrList2 = trainInfo[ESPENDTIME].split(':');
+            spendDays = 0;
+            if (timeStrList.size() > 1 && timeStrList2.size() > 1) {
+                spendTime = timeStrList[0].toInt() + timeStrList2[0].toInt();
+                if (timeStrList[1].toInt() + timeStrList2[1].toInt() > 59) {
+                    spendTime++;
+                }
+                while (spendTime - 24 > 0) {
+                    spendTime -= 24;
+                    spendDays++;
+                }
+            }
+            item->setData(spendDays, Qt::UserRole);
         }
 
         item = model->item(itemIdx, EUSEDTIMECOL);
@@ -1450,7 +1491,7 @@ void MainWindow::switchTableTicketShowType(bool showTicketPrice)
 
             if (data.isValid()) {
                 text = data.toString();
-                if (text != '0') {
+                if (text != '0' && text != _("--")) {
                     item->setText(text);
                     if (showTicketPrice) {
                         item->setForeground(QBrush(QColor(238, 118, 33)));

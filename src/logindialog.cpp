@@ -43,7 +43,7 @@ void LoginDialog::setUp()
     logoLabel->setAlignment(Qt::AlignCenter);
 
 #ifdef HAS_CDN
-    loginServerLa = new QLabel(tr("登陆服务器: "));
+    loginServerLa = new QLabel(tr("服务器: "));
     loginServerCb = new QComboBox;
     loginServerCb->setMaximumWidth(200);
     loginServerCb->addItem(_("默认"));
