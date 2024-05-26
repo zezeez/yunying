@@ -973,11 +973,17 @@ void NetHelper::queryDiffDateTicketReply(QNetworkReply *reply)
         }
     }
 
+    struct CandidateDateInfo dInfo;
+    dInfo.date = date;
+    dInfo.hasUpdate = true;
+
     if (!allTrain.isEmpty()) {
         Analysis ana(allTrain);
-        ana.mayCandidate(stationMap, date);
+        if (!ana.mayCandidate(stationMap, date)) {
+            candidateEntry(dInfo);
+        }
     } else {
-        handleCandidateError();
+        candidateEntry(dInfo);
     }
 }
 
@@ -3277,21 +3283,21 @@ void NetHelper::getCdnReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
-        w->formatOutput(_("获取Cdn失败"));
+        w->formatOutput(_("获取cdn失败"));
         return;
     }
     int status = varMap[_("status")].toInt();
     if (status) {
         QString msg = varMap[_("msg")].toString();
         if (!msg.isEmpty()) {
-            w->formatOutput(_("获取Cdn失败，描述：%1").arg(msg));
+            w->formatOutput(_("获取cdn失败，描述：%1").arg(msg));
             return;
         }
     }
     QStringList cdnList = varMap[_("cdnList")].toStringList();
-    w->formatOutput(_("从服务器获取到%1个CDN").arg(cdnList.size()));
+    w->formatOutput(_("从服务器获取到%1个cdn").arg(cdnList.size()));
     if (!cdnList.isEmpty()) {
-        w->formatOutput(_("正在进行CDN可用性测试..."));
+        w->formatOutput(_("正在进行cdn可用性测试..."));
         cdn.addCdns(cdnList);
         cdn.startTest();
     }

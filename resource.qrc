@@ -38,6 +38,18 @@
         <file>images/bank_zgyl.png</file>
         <file>images/bank_zsyh.png</file>
         <file>images/bank_ztytk.png</file>
+        <file>images/arrow_drop_down.png</file>
+        <file>images/arrow_drop_up.png</file>
+        <file>images/arrow_drop_down_pressed.png</file>
+        <file>images/arrow_drop_up_pressed.png</file>
+        <file>images/arrow_down_small.png</file>
+        <file>images/arrow_down_small_hover.png</file>
+        <file>images/arrow_up_small.png</file>
+        <file>images/arrow_up_small_hover.png</file>
+        <file>images/arrow_left_small.png</file>
+        <file>images/arrow_left_small_hover.png</file>
+        <file>images/arrow_right_small.png</file>
+        <file>images/arrow_right_small_hover.png</file>
     </qresource>
     <qresource prefix="/res">
         <file>main.qss</file>

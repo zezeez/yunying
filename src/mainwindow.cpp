@@ -337,6 +337,7 @@ void MainWindow::userStartStationChanged()
     UserData *ud = UserData::instance();
     struct UserConfig &uc = ud->getUserConfig();
     QString staFromStation = fromStationLe->text().trimmed();
+    static QString laststaFromCode;
 
     uc.staFromName = staFromStation;
     uc.staFromCode = ud->getStaCode()->value(staFromStation);
@@ -344,7 +345,11 @@ void MainWindow::userStartStationChanged()
         formatOutput(_("抱歉，未找到出发站名称为'%1'的站点代码，请检查出发站的站点名称是否正确").arg(uc.staFromName));
         return;
     }
-    trainNoDialog->clearUnSelectedTrain();
+    if (uc.staFromCode != laststaFromCode) {
+        trainNoDialog->clearUnSelectedTrain();
+        laststaFromCode = uc.staFromCode;
+    }
+
     QSettings setting;
     setting.setValue(_("query_ticket/from_station_name"), staFromStation);
 }
@@ -354,13 +359,19 @@ void MainWindow::userEndStationChanged()
     UserData *ud = UserData::instance();
     struct UserConfig &uc = ud->getUserConfig();
     QString staToStation = toStationLe->text().trimmed();
+    static QString lastStaToCode;
+
     uc.staToName = staToStation;
     uc.staToCode = ud->getStaCode()->value(staToStation);
     if (uc.staToCode.isEmpty()) {
         formatOutput(_("抱歉，未找到到达站名称为'%1'的站点代码，请检查到达站的站点名称是否正确").arg(uc.staToName));
         return;
     }
-    trainNoDialog->clearUnSelectedTrain();
+    if (uc.staToCode != lastStaToCode) {
+        trainNoDialog->clearUnSelectedTrain();
+        lastStaToCode = uc.staToCode;
+    }
+
     QSettings setting;
     setting.setValue(_("query_ticket/to_station_name"), staToStation);
 }
@@ -791,7 +802,7 @@ void MainWindow::processQueryTicketReply(QVariantMap &data)
                 if (timeStrList[1].toInt() + timeStrList2[1].toInt() > 59) {
                     spendTime++;
                 }
-                while (spendTime - 24 > 0) {
+                while (spendTime - 24 >= 0) {
                     spendTime -= 24;
                     spendDays++;
                 }
