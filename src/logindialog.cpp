@@ -290,6 +290,7 @@ void LoginDialog::showSmsVerification()
     smsLe->setPlaceholderText(tr("短信验证码"));
 
     idCardNumLe->show();
+    idCardNumLe->setFocus();
     smsLe->show();
     smsPb->setDisabled(true);
     smsPb->show();

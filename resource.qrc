@@ -50,6 +50,8 @@
         <file>images/arrow_left_small_hover.png</file>
         <file>images/arrow_right_small.png</file>
         <file>images/arrow_right_small_hover.png</file>
+        <file>images/arrow_drop_up@14px.png</file>
+        <file>images/arrow_drop_down@14px.png</file>
     </qresource>
     <qresource prefix="/res">
         <file>main.qss</file>

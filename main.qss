@@ -209,7 +209,9 @@ QDateEdit::down-button:pressed {
 }
 
 QDateEdit::drop-down {
-    image: url(":/icon/images/arrow_drop_down.png")
+    image: url(":/icon/images/arrow_drop_down.png");
+    subcontrol-origin: content;
+    subcontrol-position: bottom right;
 }
 
 QDateEdit::drop-down:pressed {
@@ -337,23 +339,22 @@ QComboBox::down-arrow:on { /* shift the arrow when popup is open */
 }
 
 QSpinBox {
-    min-width: 1em;
-    border: 2px solid gray;
+    border: 1px solid gray;
     border-radius: 4px;
     padding: 2px;
 }
 
 QSpinBox::up-button {
-    subcontrol-origin: border;
-    subcontrol-position: top right; /* position at the top right corner */
+    /*subcontrol-origin: border;
+    subcontrol-position: top right;*/ /*  position at the top right corner */
 
-    width: 16px; /* 16 + 2*1px border-width = 15px padding + 3px parent border */
+    width: 14px; /* 16 + 2*1px border-width = 15px padding + 3px parent border */
     border-width: 1px;
     border-bottom-width: 0;
 }
 
 QSpinBox:down-arrow {
-    image: url(":/icon/images/arrow_drop_down.png");
+    image: url(":/icon/images/arrow_drop_down@14px.png");
 }
 
 QSpinBox:down-arrow:pressed {
@@ -361,30 +362,20 @@ QSpinBox:down-arrow:pressed {
 }
 
 QSpinBox::down-button {
-    subcontrol-origin: border;
-    subcontrol-position: bottom right; /* position at bottom right corner */
+    /*subcontrol-origin: border;
+    subcontrol-position: bottom right;*/ /*  position at bottom right corner */
 
-    width: 19px;
+    width: 14px;
     border-width: 1px;
     border-top-width: 0;
 }
 
 QSpinBox:up-arrow {
-    image: url(":/icon/images/arrow_drop_up.png");
+    image: url(":/icon/images/arrow_drop_up@14px.png");
 }
 
 QSpinBox:up-arrow:pressed {
     image: url(":/icon/images/arrow_drop_up_pressed.png");
-}
-
-QSpinBox:up-button {
-    min-width: 1em;
-    border-left-width: 1px;
-    border-bottom-width: 1px;
-    border-right-width: 1px;
-    border-color: gray;
-    border-radius: 1px;
-    padding: 2px;
 }
 
 QSpinBox:enabled:hover,focus {
@@ -481,4 +472,48 @@ QToolTip {
     padding: 5px;
     border-radius: 3px;
     opacity: 200;
+}
+
+QDateTimeEdit {
+    border: 1px solid gray;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+QDateTimeEdit::up-button {
+    /*subcontrol-origin: border;
+    subcontrol-position: top right;*/ /*  position at the top right corner */
+
+    width: 14px; /* 16 + 2*1px border-width = 15px padding + 3px parent border */
+    border-width: 1px;
+    border-bottom-width: 0;
+}
+
+QDateTimeEdit:down-arrow {
+    image: url(":/icon/images/arrow_drop_down@14px.png");
+}
+
+QDateTimeEdit:down-arrow:pressed {
+    image: url(":/icon/images/arrow_drop_down_pressed.png");
+}
+
+QDateTimeEdit::down-button {
+    /*subcontrol-origin: border;
+    subcontrol-position: bottom right;*/ /*  position at bottom right corner */
+
+    width: 14px;
+    border-width: 1px;
+    border-top-width: 0;
+}
+
+QDateTimeEdit:up-arrow {
+    image: url(":/icon/images/arrow_drop_up@14px.png");
+}
+
+QDateTimeEdit:up-arrow:pressed {
+    image: url(":/icon/images/arrow_drop_up_pressed.png");
+}
+
+QDateTimeEdit:enabled:hover,focus {
+    border-color: #3498DB
 }
