@@ -117,7 +117,7 @@ RC_ICONS = images/ticket.ico
 #    LIBS += -lUser32
 #}
 
-unix {
+unix:!macx {
     qml_debug {
         QMAKE_CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer -fsanitize-recover=address
         LIBS += -lasan
