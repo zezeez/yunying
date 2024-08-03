@@ -471,5 +471,7 @@ public:
 
 QString seatTypeSubmtiCodeTransToDesc(QChar seatType);
 QChar seatTypeEnumTransToSubmitCode(enum TrainInfoEnum seatType);
+QString getAppDataPath();
+QString getAppCachePath();
 
 #endif // USERDATA_H

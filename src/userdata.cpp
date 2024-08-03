@@ -2,6 +2,8 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
+#include <QStandardPaths>
+#include <QDir>
 
 #define _ QStringLiteral
 
@@ -166,4 +168,30 @@ QChar seatTypeEnumTransToSubmitCode(enum TrainInfoEnum seatType)
     if (idx < 0 || idx >= code.size())
         return '0';
     return code[idx];
+}
+
+QString getAppDataPath()
+{
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir dir;
+    if (!dir.exists(dataPath)) {
+        if (!dir.mkpath(dataPath)) {
+            qWarning() << "Could not create data directory:" << dataPath;
+            return "";
+        }
+    }
+    return dataPath;
+}
+
+QString getAppCachePath()
+{
+    QString cachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    QDir dir;
+    if (!dir.exists(cachePath)) {
+        if (!dir.mkpath(cachePath)) {
+            qWarning() << "Could not create data directory:" << cachePath;
+            return "";
+        }
+    }
+    return cachePath;
 }

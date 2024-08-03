@@ -1903,12 +1903,24 @@ void NetHelper::getStationNameTxtReply(QNetworkReply *reply)
 
 void NetHelper::saveStationNameFile(const QByteArray &nameText)
 {
-    QFile file(QStringLiteral("./station_name_" STATIONNAMEVERSION ".txt"));
+    QString dataPath = getAppDataPath();
+    if (dataPath.isEmpty()) {
+        dataPath = "./data";
+        QDir dir;
+        if (!dir.exists(dataPath)) {
+            if (!dir.mkpath(dataPath)) {
+                qWarning() << "Could not create data directory:" << dataPath;
+                return;
+            }
+        }
+    }
+    QFile file(dataPath + "/station_name_" STATIONNAMEVERSION ".txt");
 
     if (file.open(QIODevice::WriteOnly)) {
         file.write(nameText);
         file.close();
-        return;
+    } else {
+        qWarning() << "Could not open file " << file.fileName() << " to write";
     }
 }
 
@@ -3069,7 +3081,20 @@ void NetHelper::payWebBusinessReply(QNetworkReply *reply)
                 w->formatOutput(_("支付出错：服务器返回数据为空，请前往12306网站或12306手机APP完成支付"));
                 return;
             }
-            QTemporaryFile *tempFile = new QTemporaryFile(_("./cache/XXXXXX.html"));
+            QString cachePath = getAppCachePath();
+
+            if (cachePath.isEmpty()) {
+                qWarning() << "Could not open application data path";
+                cachePath = "./cache";
+                QDir dir;
+                if (!dir.exists(cachePath)) {
+                    if (!dir.mkpath(cachePath)) {
+                        qWarning() << "Could not create data directory:" << cachePath;
+                        return;
+                    }
+                }
+            }
+            QTemporaryFile *tempFile = new QTemporaryFile(cachePath + _("/XXXXXX.html"));
             if (tempFile->open()) {
                 int ret = tempFile->write(data);
                 tempFile->close();

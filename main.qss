@@ -384,17 +384,17 @@ QSpinBox:enabled:hover,focus {
 
 QScrollBar:horizontal {
     border: 2px solid grey;
-    background: #F5CBA7;
+    background: #CCD1D1;
     height: 15px;
-    margin: 0px 20px 0 20px;
+    margin: 0 22px 0 22px;
 }
 QScrollBar::handle:horizontal {
-    background: white;
+    background: #F5CBA7;
     min-width: 20px;
 }
 QScrollBar::handle:horizontal:hover {
-     background: #EB984E;
-     min-height: 20px;
+    background: #EB984E;
+    min-height: 20px;
 }
 QScrollBar::add-line:horizontal {
     border: 2px solid grey;
@@ -421,6 +421,9 @@ QScrollBar::right-arrow:horizontal {
 }
 QScrollBar::right-arrow:horizontal:hover {
     image: url(":icon/images/arrow_right_small_hover.png")
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+     background: none;
 }
 
 QScrollBar:vertical {
