@@ -1,4 +1,4 @@
-# ![enter image description here](images/ticket.ico) 云映12306客户端
+# ![yuny logo](images/ticket.ico) 云映12306客户端
 
 *由Qt构建的 12306 GUI购票工具*
 
@@ -58,7 +58,7 @@
 #### 3. 构建并运行
 点击左下角的绿色三角形即自动构建并运行
 
-另外，[https://www.op9.top](https://www.op9.top)提供了Windows的二进制包下载，无须下载Qt即可运行
+### 建议优先前往[https://www.op9.top](https://www.op9.top)下载预编译好的包，如[https://www.op9.top](https://www.op9.top)没有对应系统版本则需要自行从源代码编译
 
 ## 声明
 ### 本软件仅用于学习交流，禁止用于任何商业行为，包括但不限于车票代购、倒卖、囤票、加价等行为，违者自行承担相关责任
