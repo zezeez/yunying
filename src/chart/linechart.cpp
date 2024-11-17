@@ -1,4 +1,5 @@
 #include <QVBoxLayout>
+#include <QLegendMarker>
 #include "chart/linechart.h"
 
 #define _ QStringLiteral
@@ -11,8 +12,8 @@ LineChartView::LineChartView(QWidget *parent) : QDialog(parent)
     valueMax = 0;
     valueMaxIndex = 0;
 
-    for (int i = 0; i < 6; i++) {
-        data << QPointF(i + 0.5, 0) << QPointF(i + 1, 0);
+    for (int i = 0; i < 9; i++) {
+        data << QPointF(i, 0);
     }
 
     *series << data;
@@ -21,19 +22,16 @@ LineChartView::LineChartView(QWidget *parent) : QDialog(parent)
     chart->createDefaultAxes();
     QList<QAbstractAxis *> absSeries = chart->axes(Qt::Horizontal);
     if (!absSeries.isEmpty()) {
-        absSeries[0]->setTitleText(_("过去/小时"));
-        absSeries[0]->setRange(0.5, 6);
+        absSeries[0]->setRange(0, 8);
         absSeries[0]->setGridLineVisible(false);
         static_cast<QValueAxis *>(absSeries[0])->setLabelFormat("%u");
     }
     absSeries = chart->axes(Qt::Vertical);
     if (!absSeries.isEmpty()) {
-        absSeries[0]->setTitleText(_("时间/ms"));
         absSeries[0]->setRange(0, 100);
         absSeries[0]->setGridLineVisible(false);
         static_cast<QValueAxis *>(absSeries[0])->setLabelFormat("%u");
     }
-    chart->setTitle(_("时延统计"));
 
     view = new QChartView(chart);
     view->setRenderHint(QPainter::Antialiasing);
@@ -46,6 +44,32 @@ LineChartView::LineChartView(QWidget *parent) : QDialog(parent)
 LineChartView::~LineChartView()
 {
 
+}
+
+void LineChartView::setTitle(const QString &title)
+{
+    chart->setTitle(title);
+}
+
+void LineChartView::setXSeriesTitle(const QString &title)
+{
+    QList<QAbstractAxis *> absSeries = chart->axes(Qt::Horizontal);
+    if (!absSeries.isEmpty()) {
+        absSeries[0]->setTitleText(title);
+    }
+}
+
+void LineChartView::setYSeriesTitle(const QString &title)
+{
+    QList<QAbstractAxis *> absSeries = chart->axes(Qt::Vertical);
+    if (!absSeries.isEmpty()) {
+        absSeries[0]->setTitleText(title);
+    }
+}
+
+void LineChartView::legendHide()
+{
+    chart->legend()->hide();
 }
 
 void LineChartView::update(int d)
@@ -61,7 +85,7 @@ void LineChartView::update(int d)
         valueMax = d;
     } else {
         valueMaxIndex++;
-        if (valueMaxIndex > 11) {
+        if (valueMaxIndex > data.size()) {
             valueMax = 0;
             valueMaxIndex = 0;
             for (int i = 0; i < data.size(); i++) {

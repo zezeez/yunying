@@ -49,10 +49,13 @@ int main(int argc, char *argv[])
     splash->finish(w);
     delete splash;
 
-    NetHelper::instance()->initLoginCookie();
-    NetHelper::instance()->getLoginConf();
-    NetHelper::instance()->checkUpdate();
-    w->loginDialog->show();
+    NetHelper *nh = NetHelper::instance();
+    nh->initLoginCookie();
+    nh->getLoginConf();
+    nh->checkUpdate();
+    nh->leftTicketInit();
+    //w->loginDialog->show();
+    w->show();
 
     return a.exec();
 }

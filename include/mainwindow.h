@@ -103,6 +103,8 @@ public:
     void stopPlayMusic();
     void startOrStopPlayMusic();
     void setMusicPath(const QString &path);
+    void updateLoginButtonStatus(bool isLogin);
+    void updateLatencyChart(int d);
 #ifdef HAS_CDN
     void updateAvaliableCdnNum(int num);
 #endif
@@ -130,6 +132,7 @@ public:
     QLabel *selectedTrainTipsLabel;
     QLabel *selectedSeatTypeTipsLabel;
     QLabel *selectedSeatTipsLabel;
+    QPushButton *loginButton;
 #ifdef HAS_CDN
     QLabel *cdnIndicatorLabel;
 #endif
@@ -158,6 +161,7 @@ public:
 
     BarChartView *statChart;
     LineChartView *delayChart;
+    LineChartView *latencyChart;
 
     Ntp ntp;
 

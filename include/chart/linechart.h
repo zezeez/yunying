@@ -8,9 +8,14 @@
 
 class LineChartView : public QDialog
 {
+    Q_OBJECT
 public:
     LineChartView(QWidget *parent = nullptr);
     ~LineChartView();
+    void setTitle(const QString &title);
+    void setXSeriesTitle(const QString &title);
+    void setYSeriesTitle(const QString &title);
+    void legendHide();
     void update(int d);
 private:
     QLineSeries *series;

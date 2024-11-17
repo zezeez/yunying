@@ -51,7 +51,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
     QHBoxLayout *hLayout;
     QLabel *label;
-    QPushButton *pb;
 
     QWidget *widget = new QWidget(this);
     hLayout = new QHBoxLayout;
@@ -98,15 +97,10 @@ MainWindow::MainWindow(QWidget *parent) :
     hLayout->addWidget(switchTicketShowTypePb = new QPushButton);
     switchTicketShowTypePb->setText(tr("显示票价"));
     connect(switchTicketShowTypePb, &QPushButton::clicked, this, &MainWindow::switchTicketShowType);
-    hLayout->addWidget(pb = new QPushButton);
-    pb->setText(tr("设置"));
     hLayout->addWidget(playMusicPb = new QPushButton);
     playMusicPb->setText(tr("试听音乐"));
     connect(playMusicPb, &QPushButton::clicked, this, &MainWindow::startOrStopPlayMusic);
 
-    settingDialog = new SettingDialog(this);
-    settingDialog->setUp();
-    connect(pb, &QPushButton::clicked, settingDialog, &SettingDialog::show);
     hLayout->addWidget(grabTicketPb = new QPushButton);
     grabTicketPb->setText(tr("开始"));
     connect(grabTicketPb, &QPushButton::clicked, this, &MainWindow::startOrStopGrabTicket);
@@ -157,6 +151,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     statChart = new BarChartView(this);
     delayChart = new LineChartView(this);
+    delayChart->setTitle(_("时延统计"));
+    delayChart->setXSeriesTitle(_("过去/小时"));
+    delayChart->setYSeriesTitle(_("ms"));
 
     skipMaintenanceTimer = new QTimer;
     connect(skipMaintenanceTimer, &QTimer::timeout, this, [this] () {
@@ -183,6 +180,24 @@ MainWindow::MainWindow(QWidget *parent) :
     resize(QSize(1200, 800));
 }
 
+void MainWindow::updateLoginButtonStatus(bool isLogin)
+{
+    loginButton->disconnect(SIGNAL(pressed()));
+
+    if (isLogin) {
+        connect(loginButton, &QPushButton::pressed, this, &MainWindow::logout);
+        loginButton->setText(_("点我注销"));
+    } else {
+        connect(loginButton, &QPushButton::pressed, this, &MainWindow::showLoginDialog);
+        loginButton->setText(_("点我登陆"));
+    }
+}
+
+void MainWindow::updateLatencyChart(int d)
+{
+    latencyChart->update(d);
+}
+
 void MainWindow::createDockWidget()
 {
     QWidget *widget = new QWidget;
@@ -196,6 +211,9 @@ void MainWindow::createDockWidget()
     browser = new QTextBrowser;
     browser->setTextColor(QColor(0, 139, 139));
     browser->setOpenExternalLinks(true);
+
+    latencyChart = new LineChartView;
+    latencyChart->legendHide();
 
     //browser->setMinimumSize(QSize(200, 80));
     QHBoxLayout *layout = new QHBoxLayout;
@@ -225,13 +243,23 @@ void MainWindow::createDockWidget()
     gLayout->addWidget(pb, 3, 0, 1, 1);
     gLayout->addWidget(selectedSeatTipsLabel, 3, 1, 1, 1);
 
-    QGridLayout *rightLayout = new QGridLayout;
+    QVBoxLayout *rightLayout = new QVBoxLayout;
     pb = new QPushButton(tr("起售查询"));
     connect(pb, &QPushButton::clicked, selltimeDialog, &SellTimeQueryDialog::show);
+    rightLayout->addWidget(pb);
+    loginButton = new QPushButton(tr("点我登陆"));
+    connect(loginButton, &QPushButton::pressed, this, &MainWindow::showLoginDialog);
+    rightLayout->addWidget(loginButton);
+
+    settingDialog = new SettingDialog(this);
+    settingDialog->setUp();
+    pb = new QPushButton(tr("设置"));
+    connect(pb, &QPushButton::clicked, settingDialog, &SettingDialog::show);
     rightLayout->addWidget(pb);
 
     layout->addLayout(gLayout);
     layout->addWidget(browser);
+    layout->addWidget(latencyChart);
     layout->addLayout(rightLayout);
     widget->setLayout(layout);
     dock->setWidget(widget);
@@ -262,10 +290,12 @@ void MainWindow::createUiComponent()
 
     menu = menuBar()->addMenu(tr("&文件"));
 
+    /*
     action = new QAction(tr("&注销..."), this);
     action->setStatusTip(tr("注销登陆"));
     connect(action, &QAction::triggered, this, &MainWindow::logout);
     menu->addAction(action);
+    */
 
     action = new QAction(tr("&退出..."), this);
     action->setShortcut(tr("Ctrl+Q"));
@@ -421,25 +451,34 @@ void MainWindow::syncTime()
 
 void MainWindow::uamLogined()
 {
-    statusBar()->showMessage(QStringLiteral("已登陆"));
+    statusBar()->showMessage(QStringLiteral("当前状态：已登陆"));
     showMainWindow();
     syncTime();
+    updateLoginButtonStatus(true);
 }
 
 void MainWindow::uamNotLogined()
 {
-    statusBar()->showMessage(QStringLiteral("未登陆"));
+    statusBar()->showMessage(QStringLiteral("当前状态：未登陆"));
     showLoginDialog();
+    updateLoginButtonStatus(false);
 }
 
 void MainWindow::logout()
 {
+    if (grabTicketPb->text() == _("停止")) {
+        QMessageBox::StandardButton clicked = QMessageBox::warning(this, tr("确认注销吗？"),
+            _("当前正处于抢票模式，注销后将无法抢票！"), QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (clicked == QMessageBox::No)
+            return;
+    }
     NetHelper::instance()->logout();
 }
 
 void MainWindow::logoutSuccess()
 {
     showLoginDialog();
+    updateLoginButtonStatus(false);
 }
 
 
@@ -1317,6 +1356,7 @@ void MainWindow::prepareGrabTicket(bool status)
             settingDialog->setQueryTicketMode(ESHORTINTERVAL)) {
             formatOutput(_("刷票模式已自动切换为默认模式"));
         }
+        NetHelper::instance()->getLoginConf();
     } else {
         if (fixedTimeGrabTimer->isActive()) {
             fixedTimeGrabTimer->stop();
@@ -1556,14 +1596,14 @@ void MainWindow::resetLoginDialog()
 void MainWindow::showLoginDialog()
 {
     resetLoginDialog();
-    hide();
+    //hide();
     loginDialog->show();
 }
 
 void MainWindow::showMainWindow()
 {
     loginDialog->hide();
-    show();
+    //show();
 }
 
 void MainWindow::playMusic()
@@ -1827,28 +1867,28 @@ void MainWindow::updateNetQualityStatus(int ms)
                 pixmap.load(_(":/icon/images/perfect.png"));
                 netQualityIndicateLabel->setPixmap(pixmap);
             }
-            netQualityIndicateDescLabel->setText(tr("%1ms 非常好").arg(ms));
+            netQualityIndicateDescLabel->setText(_("%1ms 非常好").arg(ms));
         } else if (ms < 500) {
             status = 1;
             if (status != lastStatus) {
                 pixmap.load(_(":/icon/images/good.png"));
                 netQualityIndicateLabel->setPixmap(pixmap);
             }
-            netQualityIndicateDescLabel->setText(tr("%1ms 良好").arg(ms));
+            netQualityIndicateDescLabel->setText(_("%1ms 良好").arg(ms));
         } else if (ms < 1000) {
             status = 2;
             if (status != lastStatus) {
                 pixmap.load(_(":/icon/images/good.png"));
                 netQualityIndicateLabel->setPixmap(pixmap);
             }
-            netQualityIndicateDescLabel->setText(tr("%1ms 差").arg(ms));
+            netQualityIndicateDescLabel->setText(_("%1ms 差").arg(ms));
         } else {
             if (ms < 2000) {
                 status = 3;
-                netQualityIndicateDescLabel->setText(tr("%1ms 非常差").arg(ms));
+                netQualityIndicateDescLabel->setText(_("%1ms 非常差").arg(ms));
             } else {
                 status = 4;
-                netQualityIndicateDescLabel->setText(tr("> 2000ms 非常差"));
+                netQualityIndicateDescLabel->setText(_("%1ms 非常差").arg(ms));
             }
             if (status != lastStatus) {
                 lastStatus = status;
@@ -1857,6 +1897,7 @@ void MainWindow::updateNetQualityStatus(int ms)
 
             }
         }
+        updateLatencyChart(ms);
     } else {
         status = 5;
         if (status != lastStatus) {

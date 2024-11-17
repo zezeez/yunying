@@ -103,6 +103,7 @@ NetHelper::NetHelper(QObject *parent) : QObject(parent),
     keepLoginTimer = new QTimer;
     connect(keepLoginTimer, &QTimer::timeout, this, &NetHelper::keepLogin);
     keepLoginTimer->setInterval(5 * 60 * 1000);
+    refererUrl = _("https://kyfw.12306.cn/otn/view/index.html");
 }
 
 void NetHelper::networkReplyHandle(QNetworkReply *reply)
@@ -165,14 +166,20 @@ void NetHelper::setHeader(const QUrl &url, QNetworkRequest &request)
 {
     request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
     request.setRawHeader("User-Agent", USERAGENT);
+    request.setRawHeader("Origin", url.host().toLatin1());
+    request.setRawHeader("Referer", refererUrl.toLatin1());
     setCookieHeader(url, request);
+    refererUrl = url.url();
 }
 
 void NetHelper::setHeader2(const QUrl &url, QNetworkRequest &request)
 {
     request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
     request.setRawHeader("User-Agent", USERAGENT);
+    request.setRawHeader("Origin", url.host().toLatin1());
+    request.setRawHeader("Referer", refererUrl.toLatin1());
     setCookieHeader2(url, request);
+    refererUrl = url.url();
 }
 
 void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
@@ -300,12 +307,26 @@ void NetHelper::anyGet(const QUrl &url, replyCallBack rcb)
     QNetworkRequest request;
     request.setUrl(url);
     request.setTransferTimeout(REQUESTTIMEOUT);
+    request.setRawHeader("upgrade-insecure-", "1");
     request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
     request.setRawHeader("User-Agent", USERAGENT);
-    QNetworkReply *reply = nam->get(request);
+    QNetworkReply *reply = nam2->get(request);
     replyMap.insert(reply, rcb);
-    QDateTime time = QDateTime::currentDateTime();
-    rttMap.insert(reply, time.toMSecsSinceEpoch());
+}
+
+void NetHelper::anyGet(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
+{
+    QNetworkRequest request;
+    request.setUrl(url);
+    request.setTransferTimeout(REQUESTTIMEOUT);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
+    QList<std::pair<QString, QString>>::const_iterator it;
+    for (it = headers.cbegin(); it != headers.cend(); ++it) {
+        request.setRawHeader(it->first.toLatin1(), it->second.toLatin1());
+    }
+    request.setRawHeader("User-Agent", USERAGENT);
+    QNetworkReply *reply = nam2->get(request);
+    replyMap.insert(reply, rcb);
 }
 
 int NetHelper::caculateRTTDelay(QNetworkReply *reply, enum QNetworkReply::NetworkError errorNo)
@@ -320,9 +341,13 @@ int NetHelper::caculateRTTDelay(QNetworkReply *reply, enum QNetworkReply::Networ
         //rttSamples.clear();
         return -1;
     }
-    QDateTime time = QDateTime::currentDateTime();
-    int rttDelay = time.toMSecsSinceEpoch() - sample;
-    rttSamples.append(rttDelay);
+    if (sample) {
+        QDateTime time = QDateTime::currentDateTime();
+        int rttDelay = time.toMSecsSinceEpoch() - sample;
+        rttSamples.append(rttDelay);
+        w->updateNetQualityStatus(rttDelay);
+        return rttDelay;
+    }
     /*int size = rttSamples.size();
 
     if (size > 3) {
@@ -339,8 +364,8 @@ int NetHelper::caculateRTTDelay(QNetworkReply *reply, enum QNetworkReply::Networ
         w->updateNetQualityStatus(rttDelay);
         rttSamples.clear();
     }*/
-    w->updateNetQualityStatus(rttDelay);
-    return rttDelay;
+    //w->updateNetQualityStatus(rttDelay);
+    return 0;
 }
 
 int NetHelper::checkReplyOk(QNetworkReply *reply)
@@ -357,6 +382,8 @@ int NetHelper::checkReplyOk(QNetworkReply *reply)
             netStatInc(ENETERR);
         }
         caculateRTTDelay(reply, errorNo);
+        qDebug() << QStringLiteral("%1: 请求响应异常，错误号：%2，错误详情：%3")
+                            .arg(reply->request().url().url()).arg(errorNo).arg(reply->errorString());
         return -1;
     }
     caculateRTTDelay(reply, errorNo);
@@ -374,7 +401,8 @@ int NetHelper::checkReplyOk(QNetworkReply *reply)
         get(url, replyMap.value(reply));
         qDebug() << "redirect to " << redirectionTargetUrl;
     } else if (statusCodeInt != 200) {
-        w->formatOutput(QStringLiteral("服务器HTTP状态码返回错误(%1)").arg(statusCodeInt));
+        w->formatOutput(QStringLiteral("请求(%1)服务器HTTP状态码返回错误(%2)").arg(reply->request().url().url()).arg(statusCodeInt));
+        qDebug() << QStringLiteral("请求(%1)服务器HTTP状态码返回错误(%2)").arg(reply->request().url().url()).arg(statusCodeInt);
         netStatInc(EBADREPLY);
         return -1;
     }
@@ -408,7 +436,8 @@ int NetHelper::replyIsOk(QNetworkReply *reply, QVariantMap &varMap)
         varMap.insert(_("Content-Type"), contentType);
         QString s = QString::fromUtf8(content);
         if (s.contains(_("网络可能存在问题，请您重试一下"))) {
-            w->formatOutput(_("服务器应答异常，可能此设备已被暂时限制访问"));
+            w->formatOutput(_("%1: 12306响应异常，可能此设备已暂时被限制访问").arg(reply->request().url().url()));
+            qDebug() << _("%1: 12306响应异常，可能此设备已暂时被限制访问").arg(reply->request().url().url());
         }
         netStatInc(EBADREPLY);
         return -1;
@@ -486,24 +515,28 @@ void NetHelper::getLoginConfReply(QNetworkReply *reply)
         qDebug() << "new left ticket query url: " << value;
     }
 
-    if (lconf.isUamLogin) {
-        isUamLogin();
-    } else {
-        if (lconf.isLogin) {
-            w->uamLogined();
+    if (!lconf.isLogin) {
+        if (lconf.isUamLogin) {
+            isUamLogin();
         } else {
-            // 隐藏扫码登录入口
-            w->loginDialog->hideQrCodeTab();
-            // 本地登录
-            /*if (lconf.isMessagePasscode) {
-                // 显示验证方式
-                w->loginDialog->showSmsVerification();
-            }*/
-            keepLoginTimer->stop();
-#ifdef HAS_CDN
-            cdn.setMainCdn("");
-#endif
+            if (lconf.isLogin) {
+                w->uamLogined();
+            } else {
+                // 隐藏扫码登录入口
+                w->loginDialog->hideQrCodeTab();
+                // 本地登录
+                /*if (lconf.isMessagePasscode) {
+                    // 显示验证方式
+                    w->loginDialog->showSmsVerification();
+                }*/
+                keepLoginTimer->stop();
+    #ifdef HAS_CDN
+                cdn.setMainCdn("");
+    #endif
+            }
         }
+    } else {
+        loginSuccess();
     }
 }
 
@@ -656,6 +689,7 @@ void NetHelper::loginForUamReply(QNetworkReply *reply)
     QString message = QStringLiteral("您的密码很久没有修改了，为降低安全风险，请您<a href=") + BASEURL + PUBLICNAME +
                       QStringLiteral("/forgetPassword/initforgetMyPassword") + QStringLiteral("重新设置密码后再登录");
     int result_code = response[_("result_code")].toInt();
+    //qDebug() << "login result code: " << result_code;
     switch (result_code) {
     case 0:
         passportUamtk();
@@ -746,7 +780,7 @@ void NetHelper::loginSuccess()
     leftTicketInit();
 #ifdef HAS_CDN
     UserData *ud = UserData::instance();
-    if (ud->generalSetting.cdnEnable) {
+    if (ud->generalSetting.cdnEnable && cdn.isEmpty()) {
         NetHelper::instance()->getCdn();
     }
 #endif
@@ -1055,7 +1089,8 @@ void NetHelper::passportUamtkClientReply(QNetworkReply *reply)
         QString account = varMap[_("username")].toString();
         if (!account.isEmpty())
             UserData::instance()->getUserLoginInfo().account = account;
-        loginSuccess();
+        //loginSuccess();
+        getLoginConf();
     }  else if (!message.isEmpty()) {
         QMessageBox::warning(w->loginDialog, tr("Warning"), message, QMessageBox::Ok);
     }
@@ -1114,29 +1149,29 @@ void NetHelper::getPassengerInfoReply(QNetworkReply *reply)
     foreach (auto i, list) {
         QVariantMap map = i.toMap();
         struct PassengerInfo pinfo;
+
         pinfo = ud->setPassengerInfo(map);
         ud->passenger.push_back(pinfo);
-        w->passengerDialog->addUnSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
-        for (auto &p : selectedPassenger) {
-            if (p == pinfo.passName) {
-                w->passengerDialog->addSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
-                break;
-            }
+
+        if (selectedPassenger.contains(pinfo.passName)) {
+            w->passengerDialog->addSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
+        } else {
+            w->passengerDialog->addUnSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
         }
     }
+    ud->djPassenger.clear();
     list = data[_("dj_passengers")].toList();
     if (!list.isEmpty()) {
         foreach (auto i, list) {
             QVariantMap map = i.toMap();
             struct PassengerInfo pinfo;
+
             pinfo = ud->setPassengerInfo(map);
             ud->djPassenger.push_back(pinfo);
-            w->passengerDialog->addUnSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
-            for (auto &p : selectedPassenger) {
-                if (p == pinfo.passName) {
-                    w->passengerDialog->addSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
-                    break;
-                }
+            if (selectedPassenger.contains(pinfo.passName)) {
+                w->passengerDialog->addSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
+            } else {
+                w->passengerDialog->addUnSelectedPassenger(pinfo.passName + '(' + pinfo.passTypeName + ')');
             }
         }
     }
@@ -1177,7 +1212,7 @@ void NetHelper::checkUserReply(QNetworkReply *reply)
         return;
     }
 
-    qDebug() << varMap;
+    //qDebug() << varMap;
     QVariantMap data = varMap[QStringLiteral("data")].toMap();
     if (data.isEmpty()) {
         handleError();
@@ -1727,7 +1762,7 @@ void NetHelper::confirmSingleForQueueReply(QNetworkReply *reply)
         handleError();
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
     bool status = varMap[_("status")].toBool();
     if (!status) {
         w->formatOutput(_("出票失败! 无法预订本次车票"));
@@ -1864,7 +1899,7 @@ void NetHelper::resultOrderForDcQueueReply(QNetworkReply *reply)
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0)
         return;
-    qDebug() << varMap;
+    //qDebug() << varMap;
     bool status = varMap[_("status")].toBool();
     if (!status) {
         w->formatOutput(_("出票成功"));
@@ -2056,14 +2091,14 @@ void NetHelper::checkFaceReply(QNetworkReply *reply)
         handleCandidateError();
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
 
     bool status = varMap[_("status")].toBool();
     if (!status) {
         QStringList messages = varMap[_("messages")].toStringList();
         QString m = messages.isEmpty() ? _("status is false") : messages[0];
         w->formatOutput(_("候补下单时遇到错误: ") + m);
-        qDebug() << m;
+        //qDebug() << m;
         UserData *ud = UserData::instance();
         if (m.startsWith(_("目前您已有待支付的候补订单"))) {
             if (ud->candidateSetting.onlyCandidate) {
@@ -2121,7 +2156,7 @@ void NetHelper::submitCandidateOrderRequestReply(QNetworkReply *reply)
         handleCandidateError();
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
 
     QVariantMap data = varMap[_("data")].toMap();
     bool flag = data[_("flag")].toBool();
@@ -2150,7 +2185,7 @@ void NetHelper::passengerInitApiReply(QNetworkReply *reply)
         handleCandidateError();
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
 
     QVariantMap data = varMap[_("data")].toMap();
     QList<QVariant> jzdhDiffSelect = data[_("jzdhDiffSelect")].toList();
@@ -2224,7 +2259,7 @@ void NetHelper::getCandidateQueueNumReply(QNetworkReply *reply)
         handleCandidateError();
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
 
     QVariantMap data = varMap[_("data")].toMap();
     QVariantList queueNum = data[_("queueNum")].toList();
@@ -2444,7 +2479,7 @@ void NetHelper::confirmHBReply(QNetworkReply *reply)
         return;
     }
     qDebug() << __FUNCTION__;
-    qDebug() << varMap;
+    //qDebug() << varMap;
 
     bool status = varMap[_("status")].toBool();
     if (!status) {
@@ -2504,7 +2539,7 @@ void NetHelper::candidateQueryQueueReply(QNetworkReply *reply)
         return;
     }
     qDebug() << __FUNCTION__;
-    qDebug() << varMap;
+    //qDebug() << varMap;
 
     QVariantMap data = varMap[_("data")].toMap();
     if (data.isEmpty()) {
@@ -2813,7 +2848,10 @@ void NetHelper::queryWxNotifyStatusReply(QNetworkReply *reply)
 void NetHelper::getMyPublicIp()
 {
     QUrl url(_("https://ifconfig.me/ip"));
-    anyGet(url, &NetHelper::getMyPublicIpReply);
+    QList<std::pair<QString, QString>> headers;
+
+    headers.append(std::pair<QString, QString>(_("upgrade-insecure-"), _("1")));
+    anyGet(url, &NetHelper::getMyPublicIpReply, headers);
 }
 
 void NetHelper::getMyPublicIpReply(QNetworkReply *reply)
@@ -2959,7 +2997,7 @@ void NetHelper::payCheckNewReply(QNetworkReply *reply)
     if (replyIsOk(reply, varMap) < 0) {
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
     QVariantMap data = varMap[_("data")].toMap();
     payForm = data[_("payForm")].toMap();
 
@@ -3084,7 +3122,7 @@ void NetHelper::payWebBusinessReply(QNetworkReply *reply)
             QString cachePath = getAppCachePath();
 
             if (cachePath.isEmpty()) {
-                qWarning() << "Could not open application data path";
+                qWarning() << "Could not open application cache path";
                 cachePath = "./cache";
                 QDir dir;
                 if (!dir.exists(cachePath)) {
@@ -3099,7 +3137,7 @@ void NetHelper::payWebBusinessReply(QNetworkReply *reply)
                 int ret = tempFile->write(data);
                 tempFile->close();
                 if (ret > 0) {
-                    if (QDesktopServices::openUrl(tempFile->fileName())) {
+                    if (QDesktopServices::openUrl(QUrl::fromLocalFile(tempFile->fileName()))) {
                         w->formatOutput("已在浏览器中打开支付页面，请在浏览器中完成支付");
                     } else {
                         w->formatOutput(_("打开支付页面失败，请前往12306网站或12306手机APP完成支付"));
@@ -3174,7 +3212,7 @@ void NetHelper::cpayNoCompleteOrderReply(QNetworkReply *reply)
     if (replyIsOk(reply, varMap) < 0) {
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
     bool status = varMap[_("status")].toBool();
     if (status) {
         QVariantMap data = varMap[_("data")].toMap();
@@ -3203,7 +3241,7 @@ void NetHelper::cpayOrderInitReply(QNetworkReply *reply)
     if (replyIsOk(reply, varMap) < 0) {
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
     cpayCheck();
 }
 
@@ -3221,7 +3259,7 @@ void NetHelper::cpayCheckReply(QNetworkReply *reply)
     if (replyIsOk(reply, varMap) < 0) {
         return;
     }
-    qDebug() << varMap;
+    //qDebug() << varMap;
     QVariantMap data = varMap[_("data")].toMap();
     payForm = data[_("payForm")].toMap();
 
@@ -3323,6 +3361,7 @@ void NetHelper::getCdnReply(QNetworkReply *reply)
     w->formatOutput(_("从服务器获取到%1个cdn").arg(cdnList.size()));
     if (!cdnList.isEmpty()) {
         w->formatOutput(_("正在进行cdn可用性测试..."));
+        cdn.clear();
         cdn.addCdns(cdnList);
         cdn.startTest();
     }

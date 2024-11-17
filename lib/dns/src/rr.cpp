@@ -51,6 +51,7 @@ using namespace std;
 
 void RDataWithName::decode(Buffer &buffer, const uint size)
 {
+    (void)size;
     mName = buffer.getDnsDomainName();
 }
 
@@ -72,6 +73,7 @@ std::string RDataCNAME::asString()
 
 void RDataHINFO::decode(Buffer &buffer, const uint size)
 {
+    (void)size;
     mCpu = buffer.getDnsCharacterString();
     mOs = buffer.getDnsCharacterString();
 }
@@ -129,6 +131,7 @@ std::string RDataMG::asString()
 
 void RDataMINFO::decode(Buffer &buffer, const uint size)
 {
+    (void)size;
     mRMailBx = buffer.getDnsDomainName();
     mMailBx = buffer.getDnsDomainName();
 }
@@ -159,6 +162,7 @@ std::string RDataMR::asString()
 /////////// RDataMX /////////////////
 void RDataMX::decode(Buffer &buffer, const uint size)
 {
+    (void)size;
     mPreference = buffer.get16bits();
     mExchange = buffer.getDnsDomainName();
 }
@@ -233,6 +237,7 @@ std::string RDataPTR::asString()
 
 void RDataSOA::decode(Buffer &buffer, const uint size)
 {
+    (void)size;
     mMName = buffer.getDnsDomainName();
     mRName = buffer.getDnsDomainName();
     mSerial = buffer.get32bits();
@@ -292,6 +297,7 @@ std::string RDataTXT::asString()
 
 void RDataA::decode(Buffer &buffer, const uint size)
 {
+    (void)size;
     // get data from buffer
     const char *data = buffer.getBytes(4);
     for (uint i = 0; i < 4; i++)
@@ -375,6 +381,7 @@ std::string RDataWKS::asString()
 
 void RDataAAAA::decode(Buffer &buffer, const uint size)
 {
+    (void)size;
     // get data from buffer
     const char *data = buffer.getBytes(16);
     for (uint i = 0; i < 16; i++)
@@ -407,6 +414,7 @@ std::string RDataAAAA::asString()
 
 void RDataNAPTR::decode(Buffer &buffer, const uint size)
 {
+    (void)size;
     mOrder = buffer.get16bits();
     mPreference = buffer.get16bits();
     mFlags = buffer.getDnsCharacterString();

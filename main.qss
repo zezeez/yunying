@@ -20,6 +20,7 @@ QPushButton {
   border-color: beige;
   /*font: bold 14px;*/
   min-width: 4em;
+  /*min-height: 18px;*/
   padding: 2px;
   color: #1874CD;
 }
@@ -281,7 +282,7 @@ QTabBar::tab:!selected {
 }*/
 
 QDialog {
-    background-color: #F8F8F8
+    background-color: #F8F8F8;
 }
 
 QTextEdit {

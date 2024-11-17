@@ -16,6 +16,9 @@ public:
     void addCdn(const QString &cdn);
     void addCdns(const QStringList &cdnList);
     void addAvaliableCdn(const QString &cdn);
+    void clear();
+    void clearAvaliable();
+    bool isEmpty();
     void startTest();
     void setMainCdn(const QString &cdn);
     void removeMainCdn();

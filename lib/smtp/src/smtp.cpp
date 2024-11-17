@@ -604,35 +604,5 @@ void SimpleSmtpEmail::socketEncrypted()
 
 void SimpleSmtpEmail::socketStateChanged(QAbstractSocket::SocketState state)
 {
-
-}
-
-void test()
-{
-    std::string from = "gxzpljj@163.com";
-    std::string passwd ="YJXGIPMJMLWRGYMB";//这里替换成自己的授权码
-    //std::string to = "953127304@qq.com";
-    std::string subject = "test message";
-    std::string strMessage = "<!DOCTYPE html><html><head><title>Page Title</title></head><body><h1>This is a Heading</h1><p>This is a paragraph.</p></body></html>";
-
-    std::vector<std::string> vecTo; //发送列表
-    vecTo.push_back("gxzpljj@163.com");
-
-    std::vector<std::string> ccList;
-    //ccList.push_back("953127304@qq.com");//抄送列表
-
-    std::vector<std::string> attachment;
-    //attachment.push_back("/home/drliu/Downloads/Ant.tar");
-
-    static SimpleSmtpEmail m_mail;
-    //base = &m_mail;
-    //base->SendEmail(from, passs, to, subject, strMessage);//普通的文本发送，明文发送
-
-    static SimpleSmtpEmail sslEmail;
-    sslEmail.setHost("smtp.163.com");
-    sslEmail.setPort(25);
-    //sslEmail.setSsl(true);
-
-    //base->SendEmail(from, passs, to, subject, strMessage);
-    sslEmail.sendEmail(from, passwd,vecTo,subject,strMessage,attachment,ccList);//加密的发送，支持抄送、附件等
+    (void)state;
 }

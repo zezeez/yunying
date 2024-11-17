@@ -64,6 +64,7 @@ public:
     void get2(const QUrl &url, replyCallBack rcb);
     void get2(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
     void anyGet(const QUrl &url, replyCallBack rcb);
+    void anyGet(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
     void ignoreReply(QNetworkReply *reply);
     void leftTicketInit();
     void leftTicketInitReply(QNetworkReply *reply);
@@ -254,6 +255,7 @@ public:
 #ifdef HAS_CDN
     Cdn cdn;
 #endif
+    QString refererUrl;
 
     QString publicIp;
     QVariantMap payForm;

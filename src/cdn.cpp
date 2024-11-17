@@ -115,10 +115,26 @@ void Cdn::addCdns(const QStringList &cdnList)
 void Cdn::addAvaliableCdn(const QString &cdn)
 {
     UserData *ud = UserData::instance();
-    if (ud->generalSetting.cdnEnable) {
+    if (ud->generalSetting.cdnEnable && !avaliableCdn.contains(cdn)) {
         avaliableCdn.append(cdn);
         w->updateAvaliableCdnNum(avaliableCdn.size());
     }
+}
+
+void Cdn::clear()
+{
+    allCdn.clear();
+}
+
+void Cdn::clearAvaliable()
+{
+    avaliableCdn.clear();
+    avaCdnIndex = 0;
+}
+
+bool Cdn::isEmpty()
+{
+    return allCdn.isEmpty();
 }
 
 void Cdn::startTest()

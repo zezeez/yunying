@@ -36,6 +36,7 @@ public:
     void showLoadingQrCode();
     void showLoadedQrCode(const QVariantMap &varMap);
     void updateQrCodeStatus(int status);
+
 #ifdef HAS_CDN
     void addLoginServer(const QString &ip, const QString &location);
     void setLoginServerLocation(const QString &ip, const QString &location);
