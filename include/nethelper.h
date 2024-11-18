@@ -255,7 +255,7 @@ public:
 #ifdef HAS_CDN
     Cdn cdn;
 #endif
-    QString refererUrl;
+    QUrl refererUrl;
 
     QString publicIp;
     QVariantMap payForm;

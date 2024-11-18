@@ -15,7 +15,7 @@ QMainWindow::separator:hover {
 QPushButton {
   background-color: #F0F8FF;
   border-style: outset;
-  border-width: 2px;
+  border-width: 4px;
   border-radius: 8px;
   border-color: beige;
   /*font: bold 14px;*/
@@ -25,7 +25,9 @@ QPushButton {
   color: #1874CD;
 }
 QPushButton:hover {
-  background-color: #B2DFEE;
+  /*background-color: #B2DFEE;*/
+  background-color: #B0E2FF;
+  border-color: #90EE90;
 }
 QPushButton:disabled {
   background-color: #BEBEBE;

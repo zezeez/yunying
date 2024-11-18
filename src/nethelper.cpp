@@ -103,7 +103,7 @@ NetHelper::NetHelper(QObject *parent) : QObject(parent),
     keepLoginTimer = new QTimer;
     connect(keepLoginTimer, &QTimer::timeout, this, &NetHelper::keepLogin);
     keepLoginTimer->setInterval(5 * 60 * 1000);
-    refererUrl = _("https://kyfw.12306.cn/otn/view/index.html");
+    refererUrl.setUrl(_("https://kyfw.12306.cn/otn/resources/login.html"));
 }
 
 void NetHelper::networkReplyHandle(QNetworkReply *reply)
@@ -166,20 +166,20 @@ void NetHelper::setHeader(const QUrl &url, QNetworkRequest &request)
 {
     request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
     request.setRawHeader("User-Agent", USERAGENT);
-    request.setRawHeader("Origin", url.host().toLatin1());
-    request.setRawHeader("Referer", refererUrl.toLatin1());
+    request.setRawHeader("Origin", (refererUrl.scheme() + _("://") + refererUrl.host()).toLatin1());
+    request.setRawHeader("Referer", refererUrl.url().toLatin1());
     setCookieHeader(url, request);
-    refererUrl = url.url();
+    refererUrl = url;
 }
 
 void NetHelper::setHeader2(const QUrl &url, QNetworkRequest &request)
 {
     request.setHeader(QNetworkRequest::ContentTypeHeader, _("application/x-www-form-urlencoded; charset=UTF-8"));
     request.setRawHeader("User-Agent", USERAGENT);
-    request.setRawHeader("Origin", url.host().toLatin1());
-    request.setRawHeader("Referer", refererUrl.toLatin1());
+    request.setRawHeader("Origin", (refererUrl.scheme() + _("://") + refererUrl.host()).toLatin1());
+    request.setRawHeader("Referer", refererUrl.url().toLatin1());
     setCookieHeader2(url, request);
-    refererUrl = url.url();
+    refererUrl = url;
 }
 
 void NetHelper::post(const QUrl &url, ReqParam &param, NetHelper::replyCallBack rcb, QList<std::pair<QString, QString>> &headers)
