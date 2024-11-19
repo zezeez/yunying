@@ -150,8 +150,8 @@ void SellTimeQueryDialog::queryLcTimeReply(QVariantMap &varMap)
     if (data.isEmpty()) {
         return;
     }
-    qDebug() << cityStaName;
-    qDebug() << data;
+    //qDebug() << cityStaName;
+    //qDebug() << data;
     dispMsg += _("\n\n同城换乘时间参考: \n");
     for (int i = 0; i < data.size(); i++) {
         QVariantMap itemMap = data[i].toMap();

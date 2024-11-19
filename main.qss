@@ -42,7 +42,8 @@ QLineEdit {
 }
 
 QLineEdit:hover,focus {
-    background-color: #D6EAF8
+    background-color: #D6EAF8;
+    border-color: #66CDAA;
 }
 
 QLineEdit[echoMode="2"] {

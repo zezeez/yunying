@@ -65,6 +65,7 @@ public:
     void get2(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
     void anyGet(const QUrl &url, replyCallBack rcb);
     void anyGet(const QUrl &url, replyCallBack rcb, QList<std::pair<QString, QString>> &headers);
+    void resetRefererUrl();
     void ignoreReply(QNetworkReply *reply);
     void leftTicketInit();
     void leftTicketInitReply(QNetworkReply *reply);
@@ -191,6 +192,7 @@ public:
     void payGatewayReply(QNetworkReply *reply);
     void payWebBusiness();
     void payWebBusinessReply(QNetworkReply *reply);
+    void handlePayError();
 
     // 候补支付
     void cqueryQueue();

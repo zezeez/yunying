@@ -329,6 +329,11 @@ void NetHelper::anyGet(const QUrl &url, replyCallBack rcb, QList<std::pair<QStri
     replyMap.insert(reply, rcb);
 }
 
+void NetHelper::resetRefererUrl()
+{
+    refererUrl.setUrl(_("https://kyfw.12306.cn/otn/view/index.html"));
+}
+
 int NetHelper::caculateRTTDelay(QNetworkReply *reply, enum QNetworkReply::NetworkError errorNo)
 {
     qint64 sample = rttMap.value(reply);
@@ -1356,6 +1361,7 @@ void NetHelper::handleError()
 {
     UserData::instance()->recoverRunStatus();
     netStatInc(ESUBMITFAILED);
+    resetRefererUrl();
 }
 
 void NetHelper::submitOrderRequest()
@@ -1999,6 +2005,8 @@ void NetHelper::grabTicketSuccess()
     if (ud->paySetting.activePay) {
         getMyPublicIp();
         payCheckNew();
+    } else {
+        resetRefererUrl();
     }
 }
 
@@ -2031,6 +2039,7 @@ void NetHelper::handleCandidateError()
     ud->candidateInfo.allSeatType.clear();
     ud->recoverRunStatus();
     netStatInc(ECANDIDATEFAILED);
+    resetRefererUrl();
 }
 
 void NetHelper::candidateEntry(const struct CandidateDateInfo &dInfo)
@@ -2752,6 +2761,8 @@ void NetHelper::lineUptoPayConfirm(const QString &reserve_no)
     if (ud->paySetting.activePay) {
         getMyPublicIp();
         cpayOrderInit();
+    } else {
+        resetRefererUrl();
     }
 }
 
@@ -2881,6 +2892,7 @@ void NetHelper::queryNoCompleteOrderReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
+        handlePayError();
         return;
     }
     QVariantMap data = varMap[_("data")].toMap();
@@ -2915,6 +2927,7 @@ void NetHelper::payNoCompleteOrder(const QString &sequenceNo, const QString &arr
     UserData *ud = UserData::instance();
     if (!ud->paySetting.activePay) {
         w->formatOutput(_("当前没有开启主动唤起支付，请先在'设置->支付设置'中开启主动唤起支付并选择支付方式"));
+        handlePayError();
         return;
     }
     w->formatOutput(_("正在支付订单号为%1的订单...").arg(sequenceNo));
@@ -2925,12 +2938,14 @@ void NetHelper::payNoCompleteOrderReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
+        handlePayError();
         return;
     }
 
     bool status = varMap[_("status")].toBool();
     if (!status) {
         qDebug() << "status is false";
+        handlePayError();
         return;
     }
     QVariantMap data = varMap[_("data")].toMap();
@@ -2938,6 +2953,7 @@ void NetHelper::payNoCompleteOrderReply(QNetworkReply *reply)
     if (existError == _("Y")) {
         QString errorMsg = data[_("errorMsg")].toString();
         w->formatOutput(_("尝试支付时遇到错误：") + errorMsg);
+        handlePayError();
         return;
     }
     payOrderInit();
@@ -2995,6 +3011,7 @@ void NetHelper::payCheckNewReply(QNetworkReply *reply)
 {
     QVariantMap varMap;
     if (replyIsOk(reply, varMap) < 0) {
+        handlePayError();
         return;
     }
     //qDebug() << varMap;
@@ -3013,6 +3030,7 @@ void NetHelper::payGateway()
     if (epayUrl.isEmpty()) {
         qDebug() << "epay url is empty";
         w->formatOutput(_("无法找到支付地址, 支付中止"));
+        handlePayError();
         return;
     }
     param.put(_("_json_att"), _(""));
@@ -3059,16 +3077,19 @@ void NetHelper::payWebBusiness()
     QDomDocument doc("tranData");
     if (!doc.setContent(byteData)) {
         w->formatOutput(_("无法解析服务器返回的数据, 支付中止"));
+        handlePayError();
         return;
     }
     QDomElement docElem = doc.documentElement();
     if (docElem.isNull()) {
         w->formatOutput(_("payForm为空, 支付中止"));
+        handlePayError();
         return;
     }
     QDomNodeList nodeList = docElem.elementsByTagName(_("orderTimeoutDate"));
     if (nodeList.isEmpty()) {
         w->formatOutput(_("无法找到支付截止时间, 支付中止"));
+        handlePayError();
         return;
     }
     QDomElement e = nodeList.item(0).toElement();
@@ -3117,6 +3138,7 @@ void NetHelper::payWebBusinessReply(QNetworkReply *reply)
             QByteArray data = varMap[_("data")].toByteArray();
             if (data.isEmpty()) {
                 w->formatOutput(_("支付出错：服务器返回数据为空，请前往12306网站或12306手机APP完成支付"));
+                handlePayError();
                 return;
             }
             QString cachePath = getAppCachePath();
@@ -3128,6 +3150,7 @@ void NetHelper::payWebBusinessReply(QNetworkReply *reply)
                 if (!dir.exists(cachePath)) {
                     if (!dir.mkpath(cachePath)) {
                         qWarning() << "Could not create data directory:" << cachePath;
+                        handlePayError();
                         return;
                     }
                 }
@@ -3152,9 +3175,16 @@ void NetHelper::payWebBusinessReply(QNetworkReply *reply)
                 delete tempFile;
             }
         }
+        resetRefererUrl();
         return;
     }
+    resetRefererUrl();
     //qDebug() << varMap;
+}
+
+void NetHelper::handlePayError()
+{
+    resetRefererUrl();
 }
 
 // 候补支付
